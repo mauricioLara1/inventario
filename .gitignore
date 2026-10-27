@@ -1,0 +1,20 @@
+# Dependencias y builds
+node_modules/
+dist/
+build/
+coverage/
+
+# Secretos y entorno
+.env
+.env.*
+!.env.example
+
+# Datos locales y subidas
+pgdata/
+uploads/
+*.log
+
+# Sistema y editor
+.DS_Store
+.vscode/
+.idea/
