@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "positions": {
+    "table-formato_cobro": {
+      "x": 1755.25,
+      "y": 2469
+    },
+    "table-concepto_cargo_renta": {
+      "x": 826,
+      "y": 1136
+    },
+    "table-sucursal": {
+      "x": 2180,
+      "y": 2070
+    },
+    "table-categoria_empleado": {
+      "x": 1482,
+      "y": 2424
+    },
+    "table-usuario": {
+      "x": 1453.5,
+      "y": 2025
+    },
+    "table-sucursal_usuario": {
+      "x": 0,
+      "y": 1624
+    },
+    "table-auditoria": {
+      "x": 250,
+      "y": 1565
+    },
+    "table-categoria_producto": {
+      "x": 2867.5,
+      "y": 2070
+    },
+    "table-producto": {
+      "x": 2735.75,
+      "y": 1535
+    },
+    "table-producto_sucursal": {
+      "x": 520,
+      "y": 1105
+    },
+    "table-cliente": {
+      "x": 2439,
+      "y": 1994
+    },
+    "table-proveedor": {
+      "x": 3320.5,
+      "y": 2025
+    },
+    "table-compra": {
+      "x": 3087.5,
+      "y": 1534
+    },
+    "table-compra_detalle": {
+      "x": 3092,
+      "y": 1091
+    },
+    "table-lote": {
+      "x": 2653.1925872013517,
+      "y": 1015.7394408452299
+    },
+    "table-lote_saldo": {
+      "x": 1558.7785674990632,
+      "y": 783.6856297154402
+    },
+    "table-movimiento": {
+      "x": 2323.9333212030415,
+      "y": 649.7167835274237
+    },
+    "table-venta": {
+      "x": 2475.5,
+      "y": 1549
+    },
+    "table-detalle_venta": {
+      "x": 3473.5,
+      "y": 1091
+    },
+    "table-venta_lote": {
+      "x": 3119.5141608236286,
+      "y": 899.3627629367032
+    },
+    "table-venta_pago": {
+      "x": 1076,
+      "y": 1091
+    },
+    "table-categoria_renta": {
+      "x": 2005.25,
+      "y": 2439
+    },
+    "table-producto_renta": {
+      "x": 1862.25,
+      "y": 1995
+    },
+    "table-unidad_renta": {
+      "x": 1642.75,
+      "y": 1595
+    },
+    "table-renta": {
+      "x": 2102.5,
+      "y": 1504
+    },
+    "table-renta_detalle": {
+      "x": 1557,
+      "y": 1046
+    },
+    "table-unidad_renta_nota": {
+      "x": 1881,
+      "y": 1121
+    },
+    "table-unidad_renta_cargo": {
+      "x": 744,
+      "y": 663
+    },
+    "table-renta_pago": {
+      "x": 2360.5,
+      "y": 1076
+    }
+  }
+}

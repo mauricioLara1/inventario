@@ -1,0 +1,207 @@
+-- =====================================================================
+-- BORRADOR (Fase 3): modulo de rentas
+-- PostgreSQL 17. NO se ejecuta todavia: se guarda en docs/borradores/.
+--
+-- Depende del nucleo (sucursal, usuario). Mientras el nucleo no exista,
+-- el bloque "DEPENDENCIAS TEMPORALES" crea versiones minimas para poder
+-- probar este script. Cuando exista el nucleo real, se borra ese bloque.
+--
+-- Reglas que NO estan en el SQL y las hace el backend (en transaccion):
+--   * Calculo de periodos_cobrados y subtotal al devolver (con gracia).
+--   * Sincronizar estados: unidad <-> renta_detalle <-> renta.
+--   * Copiar tarifa_periodo y tarifa_valor del producto al abrir la renta.
+--   * Cerrar la renta cuando todas sus lineas dejan de estar pendientes.
+--   * Cuadrar garantia: cobrada vs devuelta (renta_pago).
+--   * Registrar auditoria de cada accion.
+-- =====================================================================
+
+BEGIN;
+
+-- ---------------------------------------------------------------------
+-- DEPENDENCIAS TEMPORALES DEL NUCLEO (borrar cuando exista el nucleo)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sucursal (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre     TEXT NOT NULL,
+    direccion  TEXT,
+    activo     BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS usuario (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre      TEXT NOT NULL,
+    correo      TEXT NOT NULL UNIQUE,
+    clave_hash  TEXT NOT NULL,
+    activo      BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------
+-- CLIENTE (obligatorio para rentar; en ventas puede ser consumidor final)
+-- ---------------------------------------------------------------------
+CREATE TABLE cliente (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tipo_documento    TEXT NOT NULL
+                      CHECK (tipo_documento IN ('CC', 'CE', 'PAS', 'NIT', 'OTRO')),
+    numero_documento  TEXT NOT NULL,
+    nombre            TEXT NOT NULL,
+    telefono          TEXT NOT NULL,
+    direccion         TEXT,
+    correo            TEXT,
+    bloqueado         BOOLEAN NOT NULL DEFAULT FALSE,
+    nota_bloqueo      TEXT,
+    activo            BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tipo_documento, numero_documento),
+    CHECK (NOT bloqueado OR nota_bloqueo IS NOT NULL)
+);
+
+-- ---------------------------------------------------------------------
+-- CATALOGO DE RENTA
+-- ---------------------------------------------------------------------
+CREATE TABLE categoria_renta (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre       TEXT NOT NULL,
+    descripcion  TEXT,
+    activo       BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Nombre unico solo entre las activas, sin distinguir mayusculas.
+CREATE UNIQUE INDEX categoria_renta_nombre_activo_uq
+    ON categoria_renta (lower(nombre)) WHERE activo;
+
+CREATE TABLE producto_renta (
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    categoria_renta_id BIGINT NOT NULL REFERENCES categoria_renta (id),
+    nombre             TEXT NOT NULL,
+    descripcion        TEXT,
+    tarifa_periodo     TEXT NOT NULL CHECK (tarifa_periodo IN ('hora', 'dia')),
+    tarifa_valor       NUMERIC(12, 2) NOT NULL CHECK (tarifa_valor >= 0),
+    valor_reposicion   NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (valor_reposicion >= 0),
+    activo             BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX producto_renta_nombre_activo_uq
+    ON producto_renta (lower(nombre)) WHERE activo;
+CREATE INDEX producto_renta_categoria_idx
+    ON producto_renta (categoria_renta_id);
+
+-- ---------------------------------------------------------------------
+-- UNIDAD: cada pieza fisica (ESC-001, ESC-002...)
+-- ---------------------------------------------------------------------
+CREATE TABLE unidad (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    producto_renta_id BIGINT NOT NULL REFERENCES producto_renta (id),
+    sucursal_id       BIGINT NOT NULL REFERENCES sucursal (id),
+    codigo            TEXT NOT NULL,
+    estado            TEXT NOT NULL DEFAULT 'disponible'
+                      CHECK (estado IN ('disponible', 'rentada', 'mantenimiento', 'baja')),
+    activo            BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX unidad_codigo_uq ON unidad (upper(codigo));
+CREATE INDEX unidad_producto_idx ON unidad (producto_renta_id);
+CREATE INDEX unidad_sucursal_estado_idx ON unidad (sucursal_id, estado);
+
+-- Historial de observaciones de cada pieza (no se editan ni se borran).
+CREATE TABLE unidad_nota (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    unidad_id   BIGINT NOT NULL REFERENCES unidad (id),
+    usuario_id  BIGINT NOT NULL REFERENCES usuario (id),
+    texto       TEXT NOT NULL CHECK (length(btrim(texto)) > 0),
+    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX unidad_nota_unidad_idx ON unidad_nota (unidad_id, creado_en);
+
+-- ---------------------------------------------------------------------
+-- RENTA (cabecera)
+-- ---------------------------------------------------------------------
+CREATE TABLE renta (
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    numero             TEXT NOT NULL,                 -- consecutivo: R-0001
+    sucursal_id        BIGINT NOT NULL REFERENCES sucursal (id),
+    cliente_id         BIGINT NOT NULL REFERENCES cliente (id),
+    abierta_por        BIGINT NOT NULL REFERENCES usuario (id),
+    cerrada_por        BIGINT REFERENCES usuario (id),
+    fecha_inicio       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    fecha_prevista     TIMESTAMPTZ NOT NULL,
+    fecha_cierre       TIMESTAMPTZ,
+    estado             TEXT NOT NULL DEFAULT 'abierta'
+                       CHECK (estado IN ('abierta', 'cerrada', 'cancelada')),
+    garantia_requerida NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (garantia_requerida >= 0),
+    observaciones      TEXT,
+    creado_en          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (sucursal_id, numero),
+    CHECK (fecha_prevista >= fecha_inicio),
+    CHECK (estado <> 'cerrada' OR (fecha_cierre IS NOT NULL AND cerrada_por IS NOT NULL))
+);
+CREATE INDEX renta_cliente_idx ON renta (cliente_id);
+CREATE INDEX renta_sucursal_estado_idx ON renta (sucursal_id, estado);
+-- Para encontrar rapido las rentas abiertas y las vencidas.
+CREATE INDEX renta_abiertas_prevista_idx ON renta (fecha_prevista) WHERE estado = 'abierta';
+
+-- ---------------------------------------------------------------------
+-- RENTA_DETALLE: una linea por pieza; cada una se devuelve por separado
+-- ---------------------------------------------------------------------
+CREATE TABLE renta_detalle (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    renta_id          BIGINT NOT NULL REFERENCES renta (id),
+    unidad_id         BIGINT NOT NULL REFERENCES unidad (id),
+    -- Tarifa copiada del producto al abrir la renta (no cambia despues).
+    tarifa_periodo    TEXT NOT NULL CHECK (tarifa_periodo IN ('hora', 'dia')),
+    tarifa_valor      NUMERIC(12, 2) NOT NULL CHECK (tarifa_valor >= 0),
+    fecha_devolucion  TIMESTAMPTZ,
+    estado_devolucion TEXT NOT NULL DEFAULT 'pendiente'
+                      CHECK (estado_devolucion IN ('pendiente', 'devuelta', 'danada', 'perdida')),
+    periodos_cobrados INTEGER CHECK (periodos_cobrados >= 0),
+    subtotal          NUMERIC(12, 2) CHECK (subtotal >= 0),
+    UNIQUE (renta_id, unidad_id),
+    UNIQUE (id, renta_id),   -- permite que renta_cargo verifique que el detalle es de su renta
+    CHECK (estado_devolucion <> 'pendiente' OR fecha_devolucion IS NULL),
+    CHECK (estado_devolucion NOT IN ('devuelta', 'danada') OR fecha_devolucion IS NOT NULL)
+);
+CREATE INDEX renta_detalle_renta_idx ON renta_detalle (renta_id);
+-- Una pieza no puede estar pendiente en dos rentas a la vez.
+CREATE UNIQUE INDEX renta_detalle_unidad_pendiente_uq
+    ON renta_detalle (unidad_id) WHERE estado_devolucion = 'pendiente';
+
+-- ---------------------------------------------------------------------
+-- RENTA_CARGO: lo que se suma a la cuenta (dano, retraso, perdida...)
+-- ---------------------------------------------------------------------
+CREATE TABLE renta_cargo (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    renta_id          BIGINT NOT NULL REFERENCES renta (id),
+    renta_detalle_id  BIGINT,
+    concepto          TEXT NOT NULL
+                      CHECK (concepto IN ('dano', 'retraso', 'perdida', 'limpieza', 'otro')),
+    descripcion       TEXT,
+    monto             NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+    creado_por        BIGINT NOT NULL REFERENCES usuario (id),
+    creado_en         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (renta_detalle_id, renta_id)
+        REFERENCES renta_detalle (id, renta_id)
+);
+CREATE INDEX renta_cargo_renta_idx ON renta_cargo (renta_id);
+
+-- ---------------------------------------------------------------------
+-- RENTA_PAGO: movimientos de dinero (no se editan ni se borran)
+--   tipo   = para que es el dinero
+--   metodo = como se pago
+-- La garantia NO es ingreso: se cobra y se devuelve.
+-- ---------------------------------------------------------------------
+CREATE TABLE renta_pago (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    renta_id    BIGINT NOT NULL REFERENCES renta (id),
+    tipo        TEXT NOT NULL
+                CHECK (tipo IN ('garantia', 'cobro', 'devolucion_garantia')),
+    metodo      TEXT NOT NULL
+                CHECK (metodo IN ('efectivo', 'transferencia', 'tarjeta', 'otro')),
+    monto       NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+    referencia  TEXT,
+    usuario_id  BIGINT NOT NULL REFERENCES usuario (id),
+    fecha       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX renta_pago_renta_idx ON renta_pago (renta_id);
+
+COMMIT;

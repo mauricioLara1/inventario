@@ -1,0 +1,340 @@
+-- =====================================================================
+-- FASE 1: nucleo + inventario
+-- PostgreSQL 17. Una sola base de datos para todo el sistema.
+--
+-- Orden de ejecucion: schema.sql -> seed.sql -> (opcional) seed_demo.sql
+--
+-- Decisiones de diseno:
+--   * lote, movimiento y auditoria son de SOLO INSERCION (triggers).
+--   * lote_saldo guarda cuanto queda de cada lote; lo actualiza un
+--     trigger al insertar un movimiento, asi nunca se desincroniza.
+--   * lote_saldo no puede ser negativo (constraint lote_saldo_no_negativo).
+--   * El stock de un producto es la suma de los saldos de sus lotes.
+--   * Dinero en NUMERIC(12,2); cantidades en NUMERIC(12,3).
+--
+-- Reglas que NO estan en SQL y hace el backend (en transaccion):
+--   * Elegir lotes para una salida: FEFO/FIFO, saltando lotes vencidos
+--     (SELECT ... FOR UPDATE sobre lote_saldo, ver docs).
+--   * Si producto.maneja_caducidad, exigir fecha_caducidad en el lote.
+--   * Al crear un lote, insertar tambien su movimiento 'compra'.
+--   * Validar permisos, sucursales y la regla de delegacion.
+--   * Registrar auditoria de cada accion.
+-- =====================================================================
+
+BEGIN;
+
+-- ---------------------------------------------------------------------
+-- NUCLEO: sucursales, permisos, roles, usuarios
+-- ---------------------------------------------------------------------
+CREATE TABLE sucursal (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre     TEXT NOT NULL,
+    direccion  TEXT,
+    activo     BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX sucursal_nombre_activo_uq
+    ON sucursal (lower(nombre)) WHERE activo;
+
+-- Catalogo fijo de acciones posibles (lo siembra seed.sql).
+CREATE TABLE permiso (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    codigo       TEXT NOT NULL UNIQUE,      -- ej: producto.crear
+    descripcion  TEXT NOT NULL
+);
+
+CREATE TABLE rol (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre       TEXT NOT NULL,
+    descripcion  TEXT,
+    es_sistema   BOOLEAN NOT NULL DEFAULT FALSE,   -- roles base, no se eliminan
+    activo       BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX rol_nombre_activo_uq
+    ON rol (lower(nombre)) WHERE activo;
+
+CREATE TABLE rol_permiso (
+    rol_id      BIGINT NOT NULL REFERENCES rol (id),
+    permiso_id  BIGINT NOT NULL REFERENCES permiso (id),
+    PRIMARY KEY (rol_id, permiso_id)
+);
+
+CREATE TABLE usuario (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre      TEXT NOT NULL,
+    correo      TEXT NOT NULL,
+    clave_hash  TEXT NOT NULL,
+    es_owner    BOOLEAN NOT NULL DEFAULT FALSE,    -- owner: todo, todas las sucursales
+    activo      BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_por  BIGINT REFERENCES usuario (id),
+    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX usuario_correo_activo_uq
+    ON usuario (lower(correo)) WHERE activo;
+
+-- Asignacion: que rol tiene cada usuario en cada sucursal.
+-- (El owner no necesita filas aqui.)
+CREATE TABLE usuario_sucursal (
+    usuario_id   BIGINT NOT NULL REFERENCES usuario (id),
+    sucursal_id  BIGINT NOT NULL REFERENCES sucursal (id),
+    rol_id       BIGINT NOT NULL REFERENCES rol (id),
+    creado_en    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (usuario_id, sucursal_id)
+);
+CREATE INDEX usuario_sucursal_sucursal_idx ON usuario_sucursal (sucursal_id);
+CREATE INDEX usuario_sucursal_rol_idx ON usuario_sucursal (rol_id);
+
+-- ---------------------------------------------------------------------
+-- AUDITORIA (solo insercion)
+-- sucursal_id nulo = accion global (la ve solo el owner)
+-- ---------------------------------------------------------------------
+CREATE TABLE auditoria (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    usuario_id   BIGINT REFERENCES usuario (id),
+    sucursal_id  BIGINT REFERENCES sucursal (id),
+    accion       TEXT NOT NULL,          -- crear, editar, desactivar, login...
+    entidad      TEXT NOT NULL,          -- producto, lote, usuario...
+    entidad_id   BIGINT,
+    detalle      JSONB,                  -- antes / despues
+    ip           TEXT,
+    creado_en    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX auditoria_sucursal_fecha_idx ON auditoria (sucursal_id, creado_en DESC);
+CREATE INDEX auditoria_usuario_fecha_idx ON auditoria (usuario_id, creado_en DESC);
+CREATE INDEX auditoria_entidad_idx ON auditoria (entidad, entidad_id);
+
+-- ---------------------------------------------------------------------
+-- INVENTARIO: catalogo
+-- ---------------------------------------------------------------------
+CREATE TABLE categoria_producto (
+    id                       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre                   TEXT NOT NULL,
+    descripcion              TEXT,
+    maneja_caducidad_defecto BOOLEAN NOT NULL DEFAULT FALSE,  -- solo sugiere el valor en el formulario
+    activo                   BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX categoria_producto_nombre_activo_uq
+    ON categoria_producto (lower(nombre)) WHERE activo;
+
+-- Ficha global del producto (la misma para todas las sucursales).
+CREATE TABLE producto (
+    id                    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    categoria_producto_id BIGINT NOT NULL REFERENCES categoria_producto (id),
+    codigo                TEXT NOT NULL,        -- codigo interno / SKU
+    codigo_barras         TEXT,
+    nombre                TEXT NOT NULL,
+    descripcion           TEXT,
+    medida                TEXT NOT NULL DEFAULT 'unidad'
+                          CHECK (medida IN ('unidad', 'kg', 'litro', 'metro', 'caja', 'paquete')),
+    maneja_caducidad      BOOLEAN NOT NULL DEFAULT FALSE,
+    activo                BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX producto_codigo_uq ON producto (upper(codigo));
+CREATE UNIQUE INDEX producto_codigo_barras_uq
+    ON producto (codigo_barras) WHERE codigo_barras IS NOT NULL;
+CREATE INDEX producto_categoria_idx ON producto (categoria_producto_id);
+
+-- Que sucursal maneja que producto, con su precio y su stock minimo.
+CREATE TABLE producto_sucursal (
+    producto_id   BIGINT NOT NULL REFERENCES producto (id),
+    sucursal_id   BIGINT NOT NULL REFERENCES sucursal (id),
+    precio_venta  NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (precio_venta >= 0),
+    stock_minimo  NUMERIC(12, 3) NOT NULL DEFAULT 0 CHECK (stock_minimo >= 0),
+    activo        BOOLEAN NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (producto_id, sucursal_id)
+);
+CREATE INDEX producto_sucursal_sucursal_idx ON producto_sucursal (sucursal_id);
+
+-- Proveedores globales.
+CREATE TABLE proveedor (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre     TEXT NOT NULL,
+    nit        TEXT,
+    telefono   TEXT,
+    correo     TEXT,
+    direccion  TEXT,
+    activo     BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX proveedor_nombre_activo_uq
+    ON proveedor (lower(nombre)) WHERE activo;
+CREATE UNIQUE INDEX proveedor_nit_activo_uq
+    ON proveedor (nit) WHERE activo AND nit IS NOT NULL;
+
+-- ---------------------------------------------------------------------
+-- LOTES: lo que llego en cada compra (nunca se modifica)
+-- La FK compuesta obliga a que el producto este habilitado en la sucursal.
+-- ---------------------------------------------------------------------
+CREATE TABLE lote (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    producto_id      BIGINT NOT NULL,
+    sucursal_id      BIGINT NOT NULL,
+    proveedor_id     BIGINT REFERENCES proveedor (id),
+    costo_unitario   NUMERIC(12, 2) NOT NULL CHECK (costo_unitario >= 0),
+    cantidad_inicial NUMERIC(12, 3) NOT NULL CHECK (cantidad_inicial > 0),
+    fecha_compra     DATE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_caducidad  DATE,
+    creado_en        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (producto_id, sucursal_id)
+        REFERENCES producto_sucursal (producto_id, sucursal_id),
+    UNIQUE (id, sucursal_id),    -- para que movimiento verifique su sucursal
+    CHECK (fecha_caducidad IS NULL OR fecha_caducidad >= fecha_compra)
+);
+-- Indice pensado para elegir lotes en orden FEFO / FIFO.
+CREATE INDEX lote_fefo_idx
+    ON lote (producto_id, sucursal_id, fecha_caducidad NULLS LAST, fecha_compra, id);
+CREATE INDEX lote_proveedor_idx ON lote (proveedor_id);
+CREATE INDEX lote_caducidad_idx ON lote (fecha_caducidad) WHERE fecha_caducidad IS NOT NULL;
+
+-- Cuanto queda de cada lote (la unica cifra que cambia).
+CREATE TABLE lote_saldo (
+    lote_id         BIGINT PRIMARY KEY REFERENCES lote (id),
+    cantidad        NUMERIC(12, 3) NOT NULL DEFAULT 0,
+    actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT lote_saldo_no_negativo CHECK (cantidad >= 0)
+);
+
+-- ---------------------------------------------------------------------
+-- MOVIMIENTOS: cada entrada y salida de un lote (solo insercion)
+--   cantidad con signo: positiva entra, negativa sale.
+--   Para corregir un error se registra el movimiento contrario.
+-- ---------------------------------------------------------------------
+CREATE TABLE movimiento (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    lote_id          BIGINT NOT NULL,
+    sucursal_id      BIGINT NOT NULL,
+    tipo             TEXT NOT NULL
+                     CHECK (tipo IN ('compra', 'devolucion_cliente', 'ajuste_positivo',
+                                     'venta', 'baja', 'ajuste_negativo', 'devolucion_proveedor')),
+    motivo           TEXT,           -- obligatorio en bajas
+    cantidad         NUMERIC(12, 3) NOT NULL,
+    referencia_tipo  TEXT,           -- quien origino el movimiento (ej: venta_detalle)
+    referencia_id    BIGINT,
+    usuario_id       BIGINT NOT NULL REFERENCES usuario (id),
+    nota             TEXT,
+    creado_en        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (lote_id, sucursal_id) REFERENCES lote (id, sucursal_id),
+    CHECK (
+        (tipo IN ('compra', 'devolucion_cliente', 'ajuste_positivo') AND cantidad > 0)
+        OR
+        (tipo IN ('venta', 'baja', 'ajuste_negativo', 'devolucion_proveedor') AND cantidad < 0)
+    ),
+    CHECK (tipo <> 'baja' OR motivo IN ('vencido', 'danado', 'perdido', 'consumo_interno')),
+    CHECK (tipo NOT IN ('ajuste_positivo', 'ajuste_negativo')
+           OR length(btrim(coalesce(nota, ''))) > 0),
+    CHECK ((referencia_tipo IS NULL) = (referencia_id IS NULL))
+);
+CREATE INDEX movimiento_lote_idx ON movimiento (lote_id);
+CREATE INDEX movimiento_sucursal_fecha_idx ON movimiento (sucursal_id, creado_en DESC);
+CREATE INDEX movimiento_usuario_idx ON movimiento (usuario_id);
+CREATE INDEX movimiento_referencia_idx ON movimiento (referencia_tipo, referencia_id)
+    WHERE referencia_tipo IS NOT NULL;
+
+-- ---------------------------------------------------------------------
+-- TRIGGERS
+-- ---------------------------------------------------------------------
+
+-- Tablas de solo insercion: no se actualizan ni se borran filas.
+CREATE FUNCTION bloquear_modificacion() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'La tabla % es de solo insercion: operacion % no permitida',
+        TG_TABLE_NAME, TG_OP;
+END;
+$$;
+
+CREATE TRIGGER lote_solo_insercion
+    BEFORE UPDATE OR DELETE ON lote
+    FOR EACH ROW EXECUTE FUNCTION bloquear_modificacion();
+CREATE TRIGGER movimiento_solo_insercion
+    BEFORE UPDATE OR DELETE ON movimiento
+    FOR EACH ROW EXECUTE FUNCTION bloquear_modificacion();
+CREATE TRIGGER auditoria_solo_insercion
+    BEFORE UPDATE OR DELETE ON auditoria
+    FOR EACH ROW EXECUTE FUNCTION bloquear_modificacion();
+
+-- Cada lote nace con su fila de saldo en 0.
+CREATE FUNCTION crear_saldo_lote() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO lote_saldo (lote_id, cantidad) VALUES (NEW.id, 0);
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER lote_crea_saldo
+    AFTER INSERT ON lote
+    FOR EACH ROW EXECUTE FUNCTION crear_saldo_lote();
+
+-- Cada movimiento suma (o resta) su cantidad al saldo del lote.
+-- Si el saldo quedara negativo, falla lote_saldo_no_negativo y se
+-- revierte toda la transaccion.
+CREATE FUNCTION aplicar_movimiento_a_saldo() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE lote_saldo
+       SET cantidad = cantidad + NEW.cantidad,
+           actualizado_en = now()
+     WHERE lote_id = NEW.lote_id;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER movimiento_actualiza_saldo
+    AFTER INSERT ON movimiento
+    FOR EACH ROW EXECUTE FUNCTION aplicar_movimiento_a_saldo();
+
+-- ---------------------------------------------------------------------
+-- VISTAS
+-- ---------------------------------------------------------------------
+
+-- Stock por producto y sucursal (incluye productos sin lotes, en 0).
+CREATE VIEW v_stock AS
+SELECT ps.sucursal_id,
+       ps.producto_id,
+       COALESCE(SUM(s.cantidad), 0) AS cantidad,
+       ps.stock_minimo,
+       (ps.stock_minimo > 0 AND COALESCE(SUM(s.cantidad), 0) <= ps.stock_minimo) AS stock_bajo
+  FROM producto_sucursal ps
+  LEFT JOIN lote l
+         ON l.producto_id = ps.producto_id AND l.sucursal_id = ps.sucursal_id
+  LEFT JOIN lote_saldo s ON s.lote_id = l.id
+ GROUP BY ps.sucursal_id, ps.producto_id, ps.stock_minimo;
+
+-- Lotes con su saldo y dias para vencer (para alertas y reportes).
+CREATE VIEW v_lote_detalle AS
+SELECT l.id AS lote_id,
+       l.producto_id,
+       l.sucursal_id,
+       l.proveedor_id,
+       l.costo_unitario,
+       l.cantidad_inicial,
+       s.cantidad AS saldo,
+       l.fecha_compra,
+       l.fecha_caducidad,
+       (l.fecha_caducidad - CURRENT_DATE) AS dias_para_vencer,
+       (l.fecha_caducidad IS NOT NULL AND l.fecha_caducidad < CURRENT_DATE) AS vencido
+  FROM lote l
+  JOIN lote_saldo s ON s.lote_id = l.id;
+
+-- Control de cuadre: debe devolver CERO filas siempre.
+CREATE VIEW v_cuadre_lote AS
+SELECT l.id AS lote_id,
+       s.cantidad AS saldo,
+       COALESCE(m.total, 0) AS suma_movimientos,
+       l.cantidad_inicial,
+       COALESCE(m.compras, 0) AS suma_compras
+  FROM lote l
+  JOIN lote_saldo s ON s.lote_id = l.id
+  LEFT JOIN (
+        SELECT lote_id,
+               SUM(cantidad) AS total,
+               SUM(cantidad) FILTER (WHERE tipo = 'compra') AS compras
+          FROM movimiento
+         GROUP BY lote_id
+       ) m ON m.lote_id = l.id
+ WHERE s.cantidad <> COALESCE(m.total, 0)
+    OR l.cantidad_inicial <> COALESCE(m.compras, 0);

@@ -1,0 +1,59 @@
+// NÚCLEO
+formato_cobro(id, nombre) // hora, día; se puede ampliar luego
+concepto_cargo_renta(id, nombre, descripcion, activo)
+
+sucursal(id, nombre, direccion, activo)
+categoria_empleado(id, nombre, descripcion, nivel_poder, activo)
+usuario(id, nombre, usuario, clave_hash, categoria_empleado_id, activo, creado_en)
+sucursal_usuario(usuario_id, sucursal_id) // clave compuesta; sin id independiente
+auditoria(id, usuario_id, accion, tabla, registro_id, fecha, detalle)
+
+categoria_producto(id, nombre, maneja_caducidad, activo)
+producto(id, categoria_producto_id, codigo, codigo_barras, nombre, medida, impuesto_porcentaje, maneja_caducidad, activo)
+producto_sucursal(producto_id, sucursal_id, precio_venta, stock_minimo, activo)
+// El stock disponible se consulta desde los lotes; no se guarda duplicado aquí.
+
+cliente(id, nombre, tipo_documento, numero_documento, telefono, correo, bloqueado, activo)
+proveedor(id, nombre, nit, telefono, correo, direccion, activo)
+
+
+// INVENTARIO Y COMPRAS
+compra(id, sucursal_id, proveedor_id, numero, numero_factura_proveedor, recibida_por, fecha, estado)
+compra_detalle(id, compra_id, producto_id, cantidad, costo_unitario, impuesto_porcentaje, fecha_caducidad)
+
+lote(id, compra_detalle_id, sucursal_id, producto_id, costo_unitario, cantidad_inicial, fecha_compra, fecha_caducidad)
+lote_saldo(lote_id, cantidad_actual)
+
+movimiento(id, lote_id, sucursal_id, tipo, cantidad_con_signo, motivo, usuario_id, fecha)
+// tipos: compra, venta, devolucion, ajuste, baja.
+// El saldo del lote sale de sus movimientos; lote_saldo guarda el saldo actual para control concurrente.
+
+
+// VENTAS
+venta(id, sucursal_id, cliente_id, vendedor_id, numero, fecha, estado)
+detalle_venta(id, venta_id, producto_id, cantidad, precio_unitario, descuento_porcentaje, impuesto_porcentaje)
+venta_lote(detalle_venta_id, movimiento_id)
+// Una línea puede consumir varios lotes. Cada movimiento apunta al lote y registra la cantidad.
+
+venta_pago(id, venta_id, metodo, monto, referencia, usuario_id, fecha)
+
+
+// RENTAS
+categoria_renta(id, nombre, descripcion, activo)
+producto_renta(id, categoria_renta_id, codigo, nombre, formato_cobro_id, precio, deposito, reposicion, activo)
+unidad_renta(id, producto_renta_id, sucursal_id, codigo, estado)
+
+renta(id, sucursal_id, cliente_id, usuario_abre_id, usuario_cierra_id, numero,
+      fecha_inicio, fecha_prevista_devolucion, fecha_cierre, estado)
+
+renta_detalle(id, renta_id, unidad_renta_id, formato_cobro_id, tarifa_aplicada,
+              deposito_aplicado, fecha_devolucion, periodos_cobrados,
+              estado_devolucion, subtotal)
+
+unidad_renta_nota(id, unidad_renta_id, usuario_id, comentario, fecha)
+
+unidad_renta_cargo(id, renta_detalle_id, concepto_cargo_id, descripcion,
+                   monto, usuario_id, fecha)
+
+renta_pago(id, renta_id, tipo, metodo, monto, referencia, usuario_id, fecha)
+// tipo: cobro, devolución de depósito, aplicación de depósito.

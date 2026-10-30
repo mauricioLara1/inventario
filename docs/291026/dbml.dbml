@@ -1,0 +1,348 @@
+Project inventario {
+  database_type: 'PostgreSQL'
+}
+
+Table formato_cobro {
+  id bigint [pk, increment]
+  nombre varchar(30) [not null, unique]
+}
+
+Table concepto_cargo_renta {
+  id bigint [pk, increment]
+  nombre varchar(100) [not null]
+  descripcion text
+  activo boolean [not null, default: true]
+}
+
+Table sucursal {
+  id bigint [pk, increment]
+  nombre varchar(120) [not null]
+  direccion varchar(250)
+  activo boolean [not null, default: true]
+}
+
+Table categoria_empleado {
+  id bigint [pk, increment]
+  nombre varchar(100) [not null]
+  descripcion text
+  nivel_poder integer [not null]
+  activo boolean [not null, default: true]
+}
+
+Table usuario {
+  id bigint [pk, increment]
+  nombre varchar(180) [not null]
+  usuario varchar(80) [not null, unique]
+  clave_hash varchar(255) [not null]
+  categoria_empleado_id bigint [not null]
+  activo boolean [not null, default: true]
+  creado_en timestamp [not null, default: `now()`]
+}
+
+Table sucursal_usuario {
+  usuario_id bigint [not null]
+  sucursal_id bigint [not null]
+
+  indexes {
+    (usuario_id, sucursal_id) [pk]
+  }
+}
+
+Table auditoria {
+  id bigint [pk, increment]
+  usuario_id bigint
+  accion varchar(80) [not null]
+  tabla varchar(100) [not null]
+  registro_id bigint
+  fecha timestamp [not null, default: `now()`]
+  detalle text
+}
+
+Table categoria_producto {
+  id bigint [pk, increment]
+  nombre varchar(120) [not null]
+  maneja_caducidad boolean [not null, default: false]
+  activo boolean [not null, default: true]
+}
+
+Table producto {
+  id bigint [pk, increment]
+  categoria_producto_id bigint [not null]
+  codigo varchar(60) [not null, unique]
+  codigo_barras varchar(80) [unique]
+  nombre varchar(180) [not null]
+  medida varchar(30) [not null]
+  impuesto_porcentaje decimal(5,2) [not null, default: 0]
+  maneja_caducidad boolean [not null, default: false]
+  activo boolean [not null, default: true]
+}
+
+Table producto_sucursal {
+  producto_id bigint [not null]
+  sucursal_id bigint [not null]
+  precio_venta decimal(12,2) [not null]
+  stock_minimo decimal(12,3) [not null, default: 0]
+  activo boolean [not null, default: true]
+
+  indexes {
+    (producto_id, sucursal_id) [pk]
+  }
+}
+
+Table cliente {
+  id bigint [pk, increment]
+  nombre varchar(180) [not null]
+  tipo_documento varchar(30)
+  numero_documento varchar(40)
+  telefono varchar(30)
+  correo varchar(180)
+  bloqueado boolean [not null, default: false]
+  activo boolean [not null, default: true]
+
+  indexes {
+    (tipo_documento, numero_documento) [unique]
+  }
+}
+
+Table proveedor {
+  id bigint [pk, increment]
+  nombre varchar(180) [not null]
+  nit varchar(40) [unique]
+  telefono varchar(30)
+  correo varchar(180)
+  direccion varchar(250)
+  activo boolean [not null, default: true]
+}
+
+Table compra {
+  id bigint [pk, increment]
+  sucursal_id bigint [not null]
+  proveedor_id bigint [not null]
+  numero varchar(60) [not null]
+  numero_factura_proveedor varchar(80)
+  recibida_por bigint [not null]
+  fecha timestamp [not null]
+  estado varchar(30) [not null, default: 'recibida']
+
+  indexes {
+    (sucursal_id, numero) [unique]
+  }
+}
+
+Table compra_detalle {
+  id bigint [pk, increment]
+  compra_id bigint [not null]
+  producto_id bigint [not null]
+  cantidad decimal(12,3) [not null]
+  costo_unitario decimal(12,2) [not null]
+  impuesto_porcentaje decimal(5,2) [not null, default: 0]
+  fecha_caducidad date
+}
+
+Table lote {
+  id bigint [pk, increment]
+  compra_detalle_id bigint [not null, unique]
+  sucursal_id bigint [not null]
+  producto_id bigint [not null]
+  costo_unitario decimal(12,2) [not null]
+  cantidad_inicial decimal(12,3) [not null]
+  fecha_compra timestamp [not null]
+  fecha_caducidad date
+}
+
+Table lote_saldo {
+  lote_id bigint [pk]
+  cantidad_actual decimal(12,3) [not null, default: 0]
+}
+
+Table movimiento {
+  id bigint [pk, increment]
+  lote_id bigint [not null]
+  sucursal_id bigint [not null]
+  tipo varchar(30) [not null]
+  cantidad_con_signo decimal(12,3) [not null]
+  motivo varchar(250)
+  usuario_id bigint [not null]
+  fecha timestamp [not null, default: `now()`]
+}
+
+Table venta {
+  id bigint [pk, increment]
+  sucursal_id bigint [not null]
+  cliente_id bigint
+  vendedor_id bigint [not null]
+  numero varchar(60) [not null]
+  fecha timestamp [not null]
+  estado varchar(30) [not null, default: 'confirmada']
+
+  indexes {
+    (sucursal_id, numero) [unique]
+  }
+}
+
+Table detalle_venta {
+  id bigint [pk, increment]
+  venta_id bigint [not null]
+  producto_id bigint [not null]
+  cantidad decimal(12,3) [not null]
+  precio_unitario decimal(12,2) [not null]
+  descuento_porcentaje decimal(5,2) [not null, default: 0]
+  impuesto_porcentaje decimal(5,2) [not null, default: 0]
+}
+
+Table venta_lote {
+  detalle_venta_id bigint [not null]
+  movimiento_id bigint [not null, unique]
+
+  indexes {
+    (detalle_venta_id, movimiento_id) [pk]
+  }
+}
+
+Table venta_pago {
+  id bigint [pk, increment]
+  venta_id bigint [not null]
+  metodo varchar(30) [not null]
+  monto decimal(12,2) [not null]
+  referencia varchar(120)
+  usuario_id bigint [not null]
+  fecha timestamp [not null, default: `now()`]
+}
+
+Table categoria_renta {
+  id bigint [pk, increment]
+  nombre varchar(120) [not null]
+  descripcion text
+  activo boolean [not null, default: true]
+}
+
+Table producto_renta {
+  id bigint [pk, increment]
+  categoria_renta_id bigint [not null]
+  codigo varchar(60) [not null, unique]
+  nombre varchar(180) [not null]
+  formato_cobro_id bigint [not null]
+  precio decimal(12,2) [not null]
+  deposito decimal(12,2) [not null, default: 0]
+  reposicion decimal(12,2) [not null, default: 0]
+  activo boolean [not null, default: true]
+}
+
+Table unidad_renta {
+  id bigint [pk, increment]
+  producto_renta_id bigint [not null]
+  sucursal_id bigint [not null]
+  codigo varchar(80) [not null, unique]
+  estado varchar(30) [not null, default: 'disponible']
+}
+
+Table renta {
+  id bigint [pk, increment]
+  sucursal_id bigint [not null]
+  cliente_id bigint [not null]
+  usuario_abre_id bigint [not null]
+  usuario_cierra_id bigint
+  numero varchar(60) [not null]
+  fecha_inicio timestamp [not null]
+  fecha_prevista_devolucion timestamp [not null]
+  fecha_cierre timestamp
+  estado varchar(30) [not null, default: 'abierta']
+
+  indexes {
+    (sucursal_id, numero) [unique]
+  }
+}
+
+Table renta_detalle {
+  id bigint [pk, increment]
+  renta_id bigint [not null]
+  unidad_renta_id bigint [not null]
+  formato_cobro_id bigint [not null]
+  tarifa_aplicada decimal(12,2) [not null]
+  deposito_aplicado decimal(12,2) [not null, default: 0]
+  fecha_devolucion timestamp
+  periodos_cobrados decimal(12,3)
+  estado_devolucion varchar(30)
+  subtotal decimal(12,2)
+}
+
+Table unidad_renta_nota {
+  id bigint [pk, increment]
+  unidad_renta_id bigint [not null]
+  usuario_id bigint [not null]
+  comentario text [not null]
+  fecha timestamp [not null, default: `now()`]
+}
+
+Table unidad_renta_cargo {
+  id bigint [pk, increment]
+  renta_detalle_id bigint [not null]
+  concepto_cargo_id bigint [not null]
+  descripcion text
+  monto decimal(12,2) [not null]
+  usuario_id bigint [not null]
+  fecha timestamp [not null, default: `now()`]
+}
+
+Table renta_pago {
+  id bigint [pk, increment]
+  renta_id bigint [not null]
+  tipo varchar(40) [not null]
+  metodo varchar(30) [not null]
+  monto decimal(12,2) [not null]
+  referencia varchar(120)
+  usuario_id bigint [not null]
+  fecha timestamp [not null, default: `now()`]
+}
+
+Ref: usuario.categoria_empleado_id > categoria_empleado.id
+Ref: sucursal_usuario.usuario_id > usuario.id
+Ref: sucursal_usuario.sucursal_id > sucursal.id
+Ref: auditoria.usuario_id > usuario.id
+
+Ref: producto.categoria_producto_id > categoria_producto.id
+Ref: producto_sucursal.producto_id > producto.id
+Ref: producto_sucursal.sucursal_id > sucursal.id
+
+Ref: compra.sucursal_id > sucursal.id
+Ref: compra.proveedor_id > proveedor.id
+Ref: compra.recibida_por > usuario.id
+Ref: compra_detalle.compra_id > compra.id
+Ref: compra_detalle.producto_id > producto.id
+Ref: lote.compra_detalle_id > compra_detalle.id
+Ref: lote.sucursal_id > sucursal.id
+Ref: lote.producto_id > producto.id
+Ref: lote_saldo.lote_id > lote.id
+Ref: movimiento.lote_id > lote.id
+Ref: movimiento.sucursal_id > sucursal.id
+Ref: movimiento.usuario_id > usuario.id
+
+Ref: venta.sucursal_id > sucursal.id
+Ref: venta.cliente_id > cliente.id
+Ref: venta.vendedor_id > usuario.id
+Ref: detalle_venta.venta_id > venta.id
+Ref: detalle_venta.producto_id > producto.id
+Ref: venta_lote.detalle_venta_id > detalle_venta.id
+Ref: venta_lote.movimiento_id > movimiento.id
+Ref: venta_pago.venta_id > venta.id
+Ref: venta_pago.usuario_id > usuario.id
+
+Ref: producto_renta.categoria_renta_id > categoria_renta.id
+Ref: producto_renta.formato_cobro_id > formato_cobro.id
+Ref: unidad_renta.producto_renta_id > producto_renta.id
+Ref: unidad_renta.sucursal_id > sucursal.id
+
+Ref: renta.sucursal_id > sucursal.id
+Ref: renta.cliente_id > cliente.id
+Ref: renta.usuario_abre_id > usuario.id
+Ref: renta.usuario_cierra_id > usuario.id
+Ref: renta_detalle.renta_id > renta.id
+Ref: renta_detalle.unidad_renta_id > unidad_renta.id
+Ref: renta_detalle.formato_cobro_id > formato_cobro.id
+Ref: unidad_renta_nota.unidad_renta_id > unidad_renta.id
+Ref: unidad_renta_nota.usuario_id > usuario.id
+Ref: unidad_renta_cargo.renta_detalle_id > renta_detalle.id
+Ref: unidad_renta_cargo.concepto_cargo_id > concepto_cargo_renta.id
+Ref: unidad_renta_cargo.usuario_id > usuario.id
+Ref: renta_pago.renta_id > renta.id
+Ref: renta_pago.usuario_id > usuario.id
