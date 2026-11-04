@@ -18,6 +18,7 @@ app.get('/salud', async (req, res) => {
 
 app.use('/auth', require('./rutas/auth'));
 
+app.use('/sucursales', require('./rutas/sucursales'));
 app.use(require('./middleware/errores').manejarErrores);
 
 app.listen(3000, () => console.log('Servidor en http://localhost:3000'));
