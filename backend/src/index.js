@@ -1,9 +1,11 @@
 require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg');
+const pool = require('./db');
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+if (!process.env.JWT_SECRET) { console.error('Falta JWT_SECRET en .env'); process.exit(1); }
+
 const app = express();
+app.use(express.json());
 
 app.get('/salud', async (req, res) => {
   try {
@@ -13,5 +15,7 @@ app.get('/salud', async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+app.use('/auth', require('./rutas/auth'));
 
 app.listen(3000, () => console.log('Servidor en http://localhost:3000'));
