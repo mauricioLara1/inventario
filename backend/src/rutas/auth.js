@@ -36,4 +36,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
+const { requiereLogin } = require('../middleware/auth');
+router.get('/yo', requiereLogin, (req, res) => res.json(req.usuario));
+
 module.exports = router;
