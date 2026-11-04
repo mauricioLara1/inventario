@@ -1,0 +1,569 @@
+-- ============================================================================
+-- INVENTARIO, COMPRAS, VENTAS, NOTAS CREDITO Y RENTAS  |  PostgreSQL 17
+-- SOLO TABLAS: estructura, llaves, restricciones e indices. Sin triggers,
+-- funciones ni vistas (esas reglas estan en schema.sql, que incluye todo esto).
+--
+--   createdb inventario
+--   psql -v ON_ERROR_STOP=1 -d inventario -f tablas.sql
+--   psql -v ON_ERROR_STOP=1 -d inventario -f seed.sql    (catalogos base)
+--
+-- Orden de modulos: 1 nucleo -> 2 catalogo -> 3 compras/lotes/kardex ->
+--                   4 ventas/notas credito -> 5 rentas.
+-- Un modulo solo depende de los anteriores; compras, ventas y rentas no se
+-- conocen entre si (solo comparten nucleo, catalogo y kardex).
+--
+-- Nota: sin los triggers, la base NO calcula por si sola lotes, saldos,
+-- numeros consecutivos ni copia precios a las lineas (esos campos hay que enviarlos).
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1. NUCLEO
+-- ============================================================================
+
+CREATE TABLE sucursal (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre      VARCHAR(120) NOT NULL,
+    direccion   VARCHAR(250),
+    activo      BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT sucursal_nombre_no_vacio CHECK (length(btrim(nombre)) > 0)
+);
+
+CREATE TABLE categoria_empleado (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre      VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT,
+    nivel_poder INTEGER NOT NULL CHECK (nivel_poder >= 0),
+    activo      BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE usuario (
+    id                    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre                VARCHAR(180) NOT NULL,
+    usuario               VARCHAR(80) NOT NULL,
+    clave_hash            VARCHAR(255) NOT NULL,
+    categoria_empleado_id BIGINT NOT NULL REFERENCES categoria_empleado (id),
+    activo                BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT usuario_nombre_no_vacio CHECK (length(btrim(nombre)) > 0)
+);
+
+CREATE UNIQUE INDEX usuario_login_uq ON usuario (lower(usuario));
+
+CREATE TABLE sucursal_usuario (
+    usuario_id  BIGINT NOT NULL REFERENCES usuario (id),
+    sucursal_id BIGINT NOT NULL REFERENCES sucursal (id),
+    PRIMARY KEY (usuario_id, sucursal_id)
+);
+
+CREATE INDEX sucursal_usuario_sucursal_idx ON sucursal_usuario (sucursal_id);
+
+CREATE TABLE auditoria (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    usuario_id  BIGINT REFERENCES usuario (id),      -- NULL = evento del sistema
+    sucursal_id BIGINT REFERENCES sucursal (id),     -- NULL = evento general
+    accion      VARCHAR(80) NOT NULL,
+    tabla       VARCHAR(100) NOT NULL,
+    registro_id BIGINT,
+    fecha       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    detalle     JSONB
+);
+
+CREATE INDEX auditoria_sucursal_fecha_idx ON auditoria (sucursal_id, fecha DESC);
+
+CREATE INDEX auditoria_usuario_fecha_idx ON auditoria (usuario_id, fecha DESC);
+
+CREATE INDEX auditoria_registro_idx ON auditoria (tabla, registro_id);
+
+CREATE TABLE cliente (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre           VARCHAR(180) NOT NULL,
+    tipo_documento   VARCHAR(30),
+    numero_documento VARCHAR(40),
+    telefono         VARCHAR(30),
+    correo           VARCHAR(180),
+    bloqueado        BOOLEAN NOT NULL DEFAULT FALSE,
+    motivo_bloqueo   TEXT,
+    activo           BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT cliente_nombre_no_vacio CHECK (length(btrim(nombre)) > 0),
+    CONSTRAINT cliente_documento_completo CHECK (
+        (tipo_documento IS NULL AND numero_documento IS NULL) OR
+        (tipo_documento IS NOT NULL AND numero_documento IS NOT NULL)),
+    CONSTRAINT cliente_bloqueo_con_motivo CHECK (
+        NOT bloqueado OR length(btrim(coalesce(motivo_bloqueo, ''))) > 0)
+);
+
+CREATE UNIQUE INDEX cliente_documento_uq ON cliente (tipo_documento, numero_documento)
+    WHERE tipo_documento IS NOT NULL AND numero_documento IS NOT NULL;
+
+CREATE INDEX cliente_nombre_idx ON cliente (lower(nombre));
+
+CREATE TABLE documento_consecutivo (
+    sucursal_id   BIGINT NOT NULL REFERENCES sucursal (id),
+    tipo          VARCHAR(20) NOT NULL
+                  CHECK (tipo IN ('compra', 'venta', 'nota_credito', 'renta')),
+    ultimo_numero BIGINT NOT NULL DEFAULT 0 CHECK (ultimo_numero >= 0),
+    PRIMARY KEY (sucursal_id, tipo)
+);
+
+-- ============================================================================
+-- 2. CATALOGO
+-- ============================================================================
+
+CREATE TABLE categoria_producto (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre           VARCHAR(120) NOT NULL UNIQUE,
+    maneja_caducidad BOOLEAN NOT NULL DEFAULT FALSE,   -- solo sugiere el valor al crear un producto
+    activo           BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE producto (
+    id                    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    categoria_producto_id BIGINT NOT NULL REFERENCES categoria_producto (id),
+    codigo                VARCHAR(60) NOT NULL,
+    codigo_barras         VARCHAR(80) UNIQUE,
+    nombre                VARCHAR(180) NOT NULL,
+    medida                VARCHAR(30) NOT NULL DEFAULT 'unidad',
+    impuesto_porcentaje   NUMERIC(5, 2) NOT NULL DEFAULT 0
+                          CHECK (impuesto_porcentaje BETWEEN 0 AND 100),
+    maneja_caducidad      BOOLEAN NOT NULL DEFAULT FALSE,
+    activo                BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT producto_nombre_no_vacio CHECK (length(btrim(nombre)) > 0)
+);
+
+CREATE UNIQUE INDEX producto_codigo_uq ON producto (upper(codigo));
+
+CREATE INDEX producto_categoria_idx ON producto (categoria_producto_id);
+
+CREATE TABLE producto_sucursal (
+    producto_id  BIGINT NOT NULL REFERENCES producto (id),
+    sucursal_id  BIGINT NOT NULL REFERENCES sucursal (id),
+    precio_venta NUMERIC(12, 2) NOT NULL CHECK (precio_venta >= 0),
+    stock_minimo NUMERIC(12, 3) NOT NULL DEFAULT 0 CHECK (stock_minimo >= 0),
+    activo       BOOLEAN NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (producto_id, sucursal_id)
+);
+
+CREATE INDEX producto_sucursal_sucursal_idx ON producto_sucursal (sucursal_id);
+
+CREATE TABLE proveedor (
+    id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre    VARCHAR(180) NOT NULL,
+    nit       VARCHAR(40) UNIQUE,
+    telefono  VARCHAR(30),
+    correo    VARCHAR(180),
+    direccion VARCHAR(250),
+    activo    BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT proveedor_nombre_no_vacio CHECK (length(btrim(nombre)) > 0)
+);
+
+-- ============================================================================
+-- 3. COMPRAS, LOTES Y KARDEX
+-- ============================================================================
+
+CREATE TABLE compra (
+    id                       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    sucursal_id              BIGINT NOT NULL REFERENCES sucursal (id),
+    proveedor_id             BIGINT NOT NULL REFERENCES proveedor (id),
+    numero                   VARCHAR(60) NOT NULL,          -- C-00001, lo asigna la base
+    numero_factura_proveedor VARCHAR(80),
+    recibida_por             BIGINT NOT NULL REFERENCES usuario (id),
+    fecha                    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    estado                   VARCHAR(20) NOT NULL DEFAULT 'borrador'
+                             CHECK (estado IN ('borrador', 'recibida', 'anulada')),
+    UNIQUE (sucursal_id, numero),
+    UNIQUE (id, sucursal_id)
+);
+
+-- Una factura de proveedor no se registra dos veces (salvo que la compra se anule).
+CREATE UNIQUE INDEX compra_factura_proveedor_uq
+    ON compra (proveedor_id, numero_factura_proveedor)
+    WHERE numero_factura_proveedor IS NOT NULL AND estado <> 'anulada';
+
+CREATE INDEX compra_sucursal_fecha_idx ON compra (sucursal_id, fecha DESC);
+
+CREATE TABLE compra_detalle (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    compra_id           BIGINT NOT NULL,
+    sucursal_id         BIGINT NOT NULL,
+    producto_id         BIGINT NOT NULL,
+    cantidad            NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
+    costo_unitario      NUMERIC(12, 2) NOT NULL CHECK (costo_unitario >= 0),
+    impuesto_porcentaje NUMERIC(5, 2) NOT NULL        -- se copia del producto si no se envia
+                        CHECK (impuesto_porcentaje BETWEEN 0 AND 100),
+    fecha_caducidad     DATE,
+    subtotal            NUMERIC(12, 2) GENERATED ALWAYS AS
+                        (round(cantidad * costo_unitario, 2)) STORED,
+    impuesto            NUMERIC(12, 2) GENERATED ALWAYS AS
+                        (round(round(cantidad * costo_unitario, 2) * impuesto_porcentaje / 100, 2)) STORED,
+    total               NUMERIC(12, 2) GENERATED ALWAYS AS
+                        (round(cantidad * costo_unitario, 2)
+                         + round(round(cantidad * costo_unitario, 2) * impuesto_porcentaje / 100, 2)) STORED,
+    FOREIGN KEY (compra_id, sucursal_id) REFERENCES compra (id, sucursal_id),
+    FOREIGN KEY (producto_id, sucursal_id) REFERENCES producto_sucursal (producto_id, sucursal_id),
+    UNIQUE (id, sucursal_id, producto_id)
+);
+
+CREATE INDEX compra_detalle_compra_idx ON compra_detalle (compra_id);
+
+-- Lote: lo que llego en una linea de compra. Inmutable; solo nace al recibir la compra.
+CREATE TABLE lote (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    compra_detalle_id BIGINT NOT NULL UNIQUE,
+    sucursal_id       BIGINT NOT NULL,
+    producto_id       BIGINT NOT NULL,
+    costo_unitario    NUMERIC(12, 2) NOT NULL CHECK (costo_unitario >= 0),
+    cantidad_inicial  NUMERIC(12, 3) NOT NULL CHECK (cantidad_inicial > 0),
+    fecha_compra      TIMESTAMPTZ NOT NULL,
+    fecha_caducidad   DATE,
+    UNIQUE (id, sucursal_id, producto_id),
+    FOREIGN KEY (compra_detalle_id, sucursal_id, producto_id)
+        REFERENCES compra_detalle (id, sucursal_id, producto_id)
+);
+
+-- Orden FEFO / FIFO.
+CREATE INDEX lote_fefo_idx ON lote (producto_id, sucursal_id, fecha_caducidad NULLS LAST, fecha_compra, id);
+
+CREATE INDEX lote_caducidad_idx ON lote (fecha_caducidad) WHERE fecha_caducidad IS NOT NULL;
+
+CREATE TABLE lote_saldo (
+    lote_id         BIGINT PRIMARY KEY REFERENCES lote (id),
+    cantidad_actual NUMERIC(12, 3) NOT NULL DEFAULT 0 CHECK (cantidad_actual >= 0)
+);
+
+-- Kardex: cantidad con signo (positiva entra, negativa sale). Solo insercion.
+CREATE TABLE movimiento (
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    lote_id            BIGINT NOT NULL,
+    sucursal_id        BIGINT NOT NULL,
+    producto_id        BIGINT NOT NULL,
+    tipo               VARCHAR(20) NOT NULL
+                       CHECK (tipo IN ('compra', 'anulacion_compra', 'venta',
+                                       'devolucion', 'ajuste', 'baja')),
+    cantidad_con_signo NUMERIC(12, 3) NOT NULL CHECK (cantidad_con_signo <> 0),
+    motivo             TEXT,
+    usuario_id         BIGINT NOT NULL REFERENCES usuario (id),
+    fecha              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (id, sucursal_id),
+    UNIQUE (id, sucursal_id, producto_id),
+    FOREIGN KEY (lote_id, sucursal_id, producto_id)
+        REFERENCES lote (id, sucursal_id, producto_id),
+    CHECK ((tipo IN ('compra', 'devolucion') AND cantidad_con_signo > 0)
+        OR (tipo IN ('anulacion_compra', 'venta', 'baja') AND cantidad_con_signo < 0)
+        OR tipo = 'ajuste'),
+    CHECK (tipo NOT IN ('ajuste', 'baja') OR length(btrim(coalesce(motivo, ''))) > 0)
+);
+
+CREATE INDEX movimiento_lote_idx ON movimiento (lote_id, fecha);
+
+CREATE INDEX movimiento_sucursal_fecha_idx ON movimiento (sucursal_id, fecha DESC);
+
+CREATE TABLE compra_anulacion (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    compra_id  BIGINT NOT NULL UNIQUE REFERENCES compra (id),
+    usuario_id BIGINT NOT NULL REFERENCES usuario (id),
+    motivo     TEXT NOT NULL CHECK (length(btrim(motivo)) > 0),
+    fecha      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================================
+-- 4. VENTAS, NOTAS CREDITO Y PAGOS
+-- ============================================================================
+
+CREATE TABLE venta (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    sucursal_id BIGINT NOT NULL REFERENCES sucursal (id),
+    cliente_id  BIGINT REFERENCES cliente (id),         -- NULL = consumidor final
+    vendedor_id BIGINT NOT NULL REFERENCES usuario (id),
+    numero      VARCHAR(60) NOT NULL,                   -- V-00001
+    fecha       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    estado      VARCHAR(20) NOT NULL DEFAULT 'borrador'
+                CHECK (estado IN ('borrador', 'confirmada')),
+    UNIQUE (sucursal_id, numero),
+    UNIQUE (id, sucursal_id)
+);
+
+CREATE INDEX venta_sucursal_fecha_idx ON venta (sucursal_id, fecha DESC);
+
+CREATE INDEX venta_cliente_idx ON venta (cliente_id) WHERE cliente_id IS NOT NULL;
+
+CREATE TABLE venta_detalle (
+    id                   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    venta_id             BIGINT NOT NULL,
+    sucursal_id          BIGINT NOT NULL,
+    producto_id          BIGINT NOT NULL,
+    cantidad             NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
+    precio_unitario      NUMERIC(12, 2) NOT NULL CHECK (precio_unitario >= 0),
+    descuento_porcentaje NUMERIC(5, 2) NOT NULL DEFAULT 0
+                         CHECK (descuento_porcentaje BETWEEN 0 AND 100),
+    impuesto_porcentaje  NUMERIC(5, 2) NOT NULL
+                         CHECK (impuesto_porcentaje BETWEEN 0 AND 100),
+    -- subtotal = bruto; el impuesto va sobre (subtotal - descuento).
+    subtotal  NUMERIC(12, 2) GENERATED ALWAYS AS
+              (round(cantidad * precio_unitario, 2)) STORED,
+    descuento NUMERIC(12, 2) GENERATED ALWAYS AS
+              (round(round(cantidad * precio_unitario, 2) * descuento_porcentaje / 100, 2)) STORED,
+    impuesto  NUMERIC(12, 2) GENERATED ALWAYS AS
+              (round((round(cantidad * precio_unitario, 2)
+                      - round(round(cantidad * precio_unitario, 2) * descuento_porcentaje / 100, 2))
+                     * impuesto_porcentaje / 100, 2)) STORED,
+    total     NUMERIC(12, 2) GENERATED ALWAYS AS
+              (round(cantidad * precio_unitario, 2)
+               - round(round(cantidad * precio_unitario, 2) * descuento_porcentaje / 100, 2)
+               + round((round(cantidad * precio_unitario, 2)
+                        - round(round(cantidad * precio_unitario, 2) * descuento_porcentaje / 100, 2))
+                       * impuesto_porcentaje / 100, 2)) STORED,
+    FOREIGN KEY (venta_id, sucursal_id) REFERENCES venta (id, sucursal_id),
+    FOREIGN KEY (producto_id, sucursal_id) REFERENCES producto_sucursal (producto_id, sucursal_id),
+    UNIQUE (id, sucursal_id),
+    UNIQUE (id, sucursal_id, producto_id),
+    UNIQUE (id, venta_id, sucursal_id)
+);
+
+CREATE INDEX venta_detalle_venta_idx ON venta_detalle (venta_id);
+
+CREATE INDEX venta_detalle_producto_idx ON venta_detalle (producto_id, sucursal_id);
+
+-- De que lotes salio cada linea. Cada fila liga la linea con un movimiento de venta.
+CREATE TABLE venta_lote (
+    venta_detalle_id BIGINT NOT NULL,
+    movimiento_id    BIGINT NOT NULL UNIQUE,
+    sucursal_id      BIGINT NOT NULL,
+    producto_id      BIGINT NOT NULL,
+    PRIMARY KEY (venta_detalle_id, movimiento_id),
+    FOREIGN KEY (venta_detalle_id, sucursal_id, producto_id)
+        REFERENCES venta_detalle (id, sucursal_id, producto_id),
+    FOREIGN KEY (movimiento_id, sucursal_id, producto_id)
+        REFERENCES movimiento (id, sucursal_id, producto_id)
+);
+
+CREATE TABLE nota_credito (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    venta_id    BIGINT NOT NULL,
+    sucursal_id BIGINT NOT NULL,
+    numero      VARCHAR(60) NOT NULL,                   -- NC-00001
+    emitida_por BIGINT NOT NULL REFERENCES usuario (id),
+    motivo      TEXT NOT NULL CHECK (length(btrim(motivo)) > 0),
+    fecha       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    estado      VARCHAR(20) NOT NULL DEFAULT 'borrador'
+                CHECK (estado IN ('borrador', 'confirmada')),
+    FOREIGN KEY (venta_id, sucursal_id) REFERENCES venta (id, sucursal_id),
+    UNIQUE (sucursal_id, numero),
+    UNIQUE (id, sucursal_id),
+    UNIQUE (id, venta_id, sucursal_id)
+);
+
+CREATE INDEX nota_credito_venta_idx ON nota_credito (venta_id);
+
+-- Lineas acreditadas. Los importes los calcula la base en proporcion a la linea
+-- vendida (la ultima parte toma el resto exacto, sin centavos sueltos).
+CREATE TABLE nota_credito_detalle (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nota_credito_id  BIGINT NOT NULL,
+    venta_id         BIGINT NOT NULL,
+    sucursal_id      BIGINT NOT NULL,
+    venta_detalle_id BIGINT NOT NULL,
+    cantidad         NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
+    subtotal         NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0),
+    descuento        NUMERIC(12, 2) NOT NULL CHECK (descuento >= 0),
+    impuesto         NUMERIC(12, 2) NOT NULL CHECK (impuesto >= 0),
+    total            NUMERIC(12, 2) NOT NULL,
+    FOREIGN KEY (nota_credito_id, venta_id, sucursal_id)
+        REFERENCES nota_credito (id, venta_id, sucursal_id),
+    FOREIGN KEY (venta_detalle_id, venta_id, sucursal_id)
+        REFERENCES venta_detalle (id, venta_id, sucursal_id),
+    UNIQUE (id, sucursal_id),
+    CHECK (descuento <= subtotal),
+    CHECK (total = subtotal - descuento + impuesto)
+);
+
+CREATE INDEX nota_credito_detalle_nc_idx ON nota_credito_detalle (nota_credito_id);
+
+CREATE INDEX nota_credito_detalle_linea_idx ON nota_credito_detalle (venta_detalle_id);
+
+-- Regreso fisico al stock, tras inspeccionar lo devuelto (opcional por linea).
+CREATE TABLE nota_credito_reingreso (
+    id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nota_credito_detalle_id BIGINT NOT NULL,
+    sucursal_id             BIGINT NOT NULL,
+    movimiento_id           BIGINT NOT NULL UNIQUE,
+    cantidad                NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
+    FOREIGN KEY (nota_credito_detalle_id, sucursal_id)
+        REFERENCES nota_credito_detalle (id, sucursal_id),
+    FOREIGN KEY (movimiento_id, sucursal_id) REFERENCES movimiento (id, sucursal_id)
+);
+
+CREATE INDEX nota_credito_reingreso_detalle_idx ON nota_credito_reingreso (nota_credito_detalle_id);
+
+CREATE TABLE venta_pago (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    venta_id        BIGINT NOT NULL REFERENCES venta (id),
+    nota_credito_id BIGINT REFERENCES nota_credito (id),   -- solo en reembolsos
+    tipo            VARCHAR(20) NOT NULL DEFAULT 'pago' CHECK (tipo IN ('pago', 'reembolso')),
+    metodo          VARCHAR(20) NOT NULL
+                    CHECK (metodo IN ('efectivo', 'transferencia', 'tarjeta', 'otro')),
+    monto           NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+    referencia      VARCHAR(120),
+    usuario_id      BIGINT NOT NULL REFERENCES usuario (id),
+    fecha           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK ((tipo = 'pago' AND nota_credito_id IS NULL)
+        OR (tipo = 'reembolso' AND nota_credito_id IS NOT NULL))
+);
+
+CREATE INDEX venta_pago_venta_idx ON venta_pago (venta_id, fecha DESC);
+
+-- ============================================================================
+-- 5. RENTAS
+-- ============================================================================
+
+CREATE TABLE formato_cobro (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre          VARCHAR(30) NOT NULL UNIQUE,
+    minutos_periodo INTEGER NOT NULL CHECK (minutos_periodo > 0)    -- hora=60, dia=1440...
+);
+
+CREATE TABLE concepto_cargo_renta (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre      VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT,
+    activo      BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE categoria_renta (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre      VARCHAR(120) NOT NULL UNIQUE,
+    descripcion TEXT,
+    activo      BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE producto_renta (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    categoria_renta_id  BIGINT NOT NULL REFERENCES categoria_renta (id),
+    codigo              VARCHAR(60) NOT NULL UNIQUE,
+    nombre              VARCHAR(180) NOT NULL,
+    formato_cobro_id    BIGINT NOT NULL REFERENCES formato_cobro (id),
+    precio              NUMERIC(12, 2) NOT NULL CHECK (precio >= 0),         -- por periodo
+    impuesto_porcentaje NUMERIC(5, 2) NOT NULL DEFAULT 0
+                        CHECK (impuesto_porcentaje BETWEEN 0 AND 100),
+    deposito            NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (deposito >= 0),
+    reposicion          NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (reposicion >= 0),
+    activo              BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE unidad_renta (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    producto_renta_id BIGINT NOT NULL REFERENCES producto_renta (id),
+    sucursal_id       BIGINT NOT NULL REFERENCES sucursal (id),
+    codigo            VARCHAR(80) NOT NULL UNIQUE,
+    estado            VARCHAR(20) NOT NULL DEFAULT 'disponible'
+                      CHECK (estado IN ('disponible', 'rentada', 'mantenimiento', 'retirada')),
+    UNIQUE (id, sucursal_id)
+);
+
+CREATE INDEX unidad_renta_estado_idx ON unidad_renta (sucursal_id, estado);
+
+CREATE TABLE unidad_renta_nota (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    unidad_renta_id BIGINT NOT NULL REFERENCES unidad_renta (id),
+    usuario_id      BIGINT NOT NULL REFERENCES usuario (id),
+    comentario      TEXT NOT NULL CHECK (length(btrim(comentario)) > 0),
+    fecha           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX unidad_renta_nota_unidad_idx ON unidad_renta_nota (unidad_renta_id, fecha DESC);
+
+CREATE TABLE renta (
+    id                        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    sucursal_id               BIGINT NOT NULL REFERENCES sucursal (id),
+    cliente_id                BIGINT NOT NULL REFERENCES cliente (id),
+    usuario_abre_id           BIGINT NOT NULL REFERENCES usuario (id),
+    usuario_cierra_id         BIGINT REFERENCES usuario (id),
+    numero                    VARCHAR(60) NOT NULL,              -- R-00001
+    fecha_inicio              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    fecha_prevista_devolucion TIMESTAMPTZ NOT NULL,
+    fecha_cierre              TIMESTAMPTZ,
+    estado                    VARCHAR(20) NOT NULL DEFAULT 'abierta'
+                              CHECK (estado IN ('abierta', 'cerrada', 'cancelada')),
+    UNIQUE (sucursal_id, numero),
+    UNIQUE (id, sucursal_id),
+    CHECK (fecha_prevista_devolucion > fecha_inicio),
+    CHECK ((estado = 'cerrada') = (fecha_cierre IS NOT NULL)),
+    CHECK (estado <> 'cerrada' OR usuario_cierra_id IS NOT NULL)
+);
+
+CREATE INDEX renta_estado_idx ON renta (sucursal_id, estado);
+
+CREATE INDEX renta_cliente_idx ON renta (cliente_id);
+
+CREATE INDEX renta_vencimiento_idx ON renta (fecha_prevista_devolucion) WHERE estado = 'abierta';
+
+-- Una linea por pieza fisica; cada una se devuelve por separado. Tarifa, impuesto
+-- y deposito se copian de producto_renta al crear la linea.
+CREATE TABLE renta_detalle (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    renta_id            BIGINT NOT NULL,
+    sucursal_id         BIGINT NOT NULL,
+    unidad_renta_id     BIGINT NOT NULL,
+    formato_cobro_id    BIGINT NOT NULL REFERENCES formato_cobro (id),
+    tarifa_aplicada     NUMERIC(12, 2) NOT NULL CHECK (tarifa_aplicada >= 0),
+    impuesto_porcentaje NUMERIC(5, 2) NOT NULL CHECK (impuesto_porcentaje BETWEEN 0 AND 100),
+    deposito_aplicado   NUMERIC(12, 2) NOT NULL CHECK (deposito_aplicado >= 0),
+    fecha_devolucion    TIMESTAMPTZ,
+    periodos_cobrados   INTEGER CHECK (periodos_cobrados >= 0),
+    estado_devolucion   VARCHAR(20) NOT NULL DEFAULT 'pendiente'
+                        CHECK (estado_devolucion IN ('pendiente', 'devuelta', 'danada', 'perdida', 'cancelada')),
+    subtotal            NUMERIC(12, 2) GENERATED ALWAYS AS
+                        (periodos_cobrados * tarifa_aplicada) STORED,
+    impuesto            NUMERIC(12, 2) GENERATED ALWAYS AS
+                        (round(periodos_cobrados * tarifa_aplicada * impuesto_porcentaje / 100, 2)) STORED,
+    total               NUMERIC(12, 2) GENERATED ALWAYS AS
+                        (periodos_cobrados * tarifa_aplicada
+                         + round(periodos_cobrados * tarifa_aplicada * impuesto_porcentaje / 100, 2)) STORED,
+    FOREIGN KEY (renta_id, sucursal_id) REFERENCES renta (id, sucursal_id),
+    FOREIGN KEY (unidad_renta_id, sucursal_id) REFERENCES unidad_renta (id, sucursal_id),
+    UNIQUE (renta_id, unidad_renta_id),
+    CHECK ((estado_devolucion IN ('pendiente', 'cancelada')
+            AND fecha_devolucion IS NULL AND periodos_cobrados IS NULL)
+        OR (estado_devolucion IN ('devuelta', 'danada', 'perdida')
+            AND fecha_devolucion IS NOT NULL AND periodos_cobrados IS NOT NULL))
+);
+
+CREATE INDEX renta_detalle_renta_idx ON renta_detalle (renta_id);
+
+-- Una pieza no puede estar pendiente en dos rentas a la vez.
+CREATE UNIQUE INDEX renta_unidad_pendiente_uq ON renta_detalle (unidad_renta_id)
+    WHERE estado_devolucion = 'pendiente';
+
+CREATE TABLE renta_cargo (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    renta_detalle_id  BIGINT NOT NULL REFERENCES renta_detalle (id),
+    concepto_cargo_id BIGINT NOT NULL REFERENCES concepto_cargo_renta (id),
+    descripcion       TEXT,
+    monto             NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+    usuario_id        BIGINT NOT NULL REFERENCES usuario (id),
+    fecha             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX renta_cargo_detalle_idx ON renta_cargo (renta_detalle_id);
+
+-- El deposito NO es ingreso: se cobra y se devuelve o se aplica a lo que se debe.
+CREATE TABLE renta_pago (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    renta_id   BIGINT NOT NULL REFERENCES renta (id),
+    tipo       VARCHAR(30) NOT NULL
+               CHECK (tipo IN ('deposito', 'cobro', 'devolucion_deposito', 'aplicacion_deposito')),
+    metodo     VARCHAR(20) NOT NULL
+               CHECK (metodo IN ('efectivo', 'transferencia', 'tarjeta', 'otro')),
+    monto      NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+    referencia VARCHAR(120),
+    usuario_id BIGINT NOT NULL REFERENCES usuario (id),
+    fecha      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX renta_pago_renta_idx ON renta_pago (renta_id, fecha DESC);
+
+COMMIT;
