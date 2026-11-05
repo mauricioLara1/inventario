@@ -25,6 +25,7 @@ app.use('/proveedores', require('./rutas/proveedores'));
 app.use('/compras', require('./rutas/compras'));
 app.use('/inventario', require('./rutas/inventario'));
 app.use('/ventas', require('./rutas/ventas'));
+app.use('/clientes', require('./rutas/clientes'));
 app.use(require('./middleware/errores').manejarErrores);
 
 app.listen(3000, () => console.log('Servidor en http://localhost:3000'));
