@@ -177,4 +177,41 @@ router.post('/:id/recibir', async (req, res, next) => {
   });
 });
 
+// ---------- Anular una compra recibida ----------
+// La base genera los movimientos contrarios. Si parte del stock ya salio falla con INV02 (el manejador la traduce a 409).
+
+router.post('/:id/anular', async (req, res, next) => {
+  const id = Number(req.params.id);
+  const motivo = (req.body || {}).motivo;
+  if (!texto(motivo)) return res.status(400).json({ error: 'Falta el motivo de la anulacion' });
+  await enTransaccion(res, next, async (client) => {
+    const c = await compraAccesible(client, req, id);
+    if (!c) return [404, { error: 'Compra no encontrada' }];
+    await client.query(
+      'INSERT INTO compra_anulacion (compra_id, usuario_id, motivo) VALUES ($1, $2, $3)',
+      [id, req.usuario.id, motivo.trim()]);
+    await registrar(client, {
+      usuarioId: req.usuario.id, sucursalId: c.sucursal_id, accion: 'anular_compra',
+      tabla: 'compra', registroId: id, detalle: { numero: c.numero, motivo: motivo.trim() } });
+    return [200, { id, numero: c.numero, estado: 'anulada', motivo: motivo.trim() }];
+  });
+});
+
+// ---------- Borrar un borrador (con sus lineas) ----------
+
+router.delete('/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  await enTransaccion(res, next, async (client) => {
+    const c = await compraAccesible(client, req, id);
+    if (!c) return [404, { error: 'Compra no encontrada' }];
+    // La base rechaza ambos borrados si la compra no esta en borrador.
+    await client.query('DELETE FROM compra_detalle WHERE compra_id = $1', [id]);
+    await client.query('DELETE FROM compra WHERE id = $1', [id]);
+    await registrar(client, {
+      usuarioId: req.usuario.id, sucursalId: c.sucursal_id, accion: 'borrar_compra_borrador',
+      tabla: 'compra', registroId: id, detalle: { numero: c.numero } });
+    return [200, { id, numero: c.numero, borrada: true }];
+  });
+});
+
 module.exports = router;
