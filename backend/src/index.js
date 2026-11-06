@@ -26,6 +26,8 @@ app.use('/compras', require('./rutas/compras'));
 app.use('/inventario', require('./rutas/inventario'));
 app.use('/ventas', require('./rutas/ventas'));
 app.use('/notas-credito', require('./rutas/notas_credito'));
+app.use('/renta-catalogo', require('./rutas/renta_catalogo'));
+app.use('/rentas', require('./rutas/rentas'));
 app.use('/clientes', require('./rutas/clientes'));
 app.use(require('./middleware/errores').manejarErrores);
 
