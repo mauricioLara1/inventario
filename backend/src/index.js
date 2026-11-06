@@ -30,6 +30,8 @@ app.use('/renta-catalogo', require('./rutas/renta_catalogo'));
 app.use('/rentas', require('./rutas/rentas'));
 app.use('/informes', require('./rutas/informes'));
 app.use('/ajustes', require('./rutas/ajustes'));
+app.use('/auth', require('./rutas/cuenta'));
+app.use('/usuarios', require('./rutas/usuarios_gestion'));
 app.use('/clientes', require('./rutas/clientes'));
 app.use(require('./middleware/errores').manejarErrores);
 
