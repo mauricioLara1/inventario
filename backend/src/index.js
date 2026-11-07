@@ -39,4 +39,4 @@ app.use('/renta-catalogo', require('./rutas/renta_catalogo_gestion'));
 app.use('/clientes', require('./rutas/clientes'));
 app.use(require('./middleware/errores').manejarErrores);
 
-app.listen(3000, () => console.log('Servidor en http://localhost:3000'));
+app.listen(process.env.PORT || 3000, () => console.log('Servidor en http://localhost:3000'));
