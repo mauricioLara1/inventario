@@ -21,6 +21,7 @@ export default function Layout() {
         <strong>Inventario</strong>
         <nav>
           <NavLink to="/inventario">Inventario</NavLink>
+          <NavLink to="/catalogo">Catálogo</NavLink>
         </nav>
         <span className="quien">{yo ? `${yo.nombre ?? yo.usuario} · ${yo.rol}` : ''}</span>
         <button className="secundario" onClick={salir}>Salir</button>

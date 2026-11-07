@@ -40,3 +40,8 @@ tr.bajo td { color: var(--error); }
 .etiqueta.buena { background: color-mix(in srgb, #2e9e5b 18%, transparent); color: #2e9e5b; }
 .etiqueta.mala { background: color-mix(in srgb, var(--error) 18%, transparent); color: var(--error); }
 tr.bajo td { color: inherit; }
+.formulario { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px; background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; }
+.formulario input { flex: 1; min-width: 130px; }
+.aviso { margin: 0 0 8px; color: #2e9e5b; font-size: .9rem; }
+input.precio { width: 130px; text-align: right; }
+tr.inactivo td { opacity: .5; }

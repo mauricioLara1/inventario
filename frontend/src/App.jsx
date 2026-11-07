@@ -3,6 +3,7 @@ import { sesion } from './api';
 import Login from './pages/Login';
 import Layout from './Layout';
 import Inventario from './pages/Inventario';
+import Catalogo from './pages/Catalogo';
 
 function Protegida({ children }) {
   return sesion.token() ? children : <Navigate to="/login" replace />;
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/" element={<Protegida><Layout /></Protegida>}>
           <Route index element={<Navigate to="/inventario" replace />} />
           <Route path="inventario" element={<Inventario />} />
+          <Route path="catalogo" element={<Catalogo />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
