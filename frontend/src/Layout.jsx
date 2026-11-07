@@ -1,0 +1,31 @@
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { api, sesion } from './api';
+
+export default function Layout() {
+  const [yo, setYo] = useState(null);
+  const navegar = useNavigate();
+
+  useEffect(() => {
+    api('GET', '/auth/yo').then(setYo).catch(() => {});
+  }, []);
+
+  function salir() {
+    sesion.borrar();
+    navegar('/login', { replace: true });
+  }
+
+  return (
+    <>
+      <header className="barra">
+        <strong>Inventario</strong>
+        <nav>
+          <NavLink to="/inventario">Inventario</NavLink>
+        </nav>
+        <span className="quien">{yo ? `${yo.nombre ?? yo.usuario} · ${yo.rol}` : ''}</span>
+        <button className="secundario" onClick={salir}>Salir</button>
+      </header>
+      <main className="contenido"><Outlet /></main>
+    </>
+  );
+}
