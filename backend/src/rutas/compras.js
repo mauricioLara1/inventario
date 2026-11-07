@@ -7,33 +7,7 @@ const { registrar } = require('../auditoria');
 const router = express.Router();
 router.use(requiereLogin, requiereNivel(50));
 
-const esId = (x) => Number.isInteger(x) && x > 0;
-const texto = (x) => typeof x === 'string' && x.trim().length > 0;
-const puedeSucursal = (u, sucursalId) => u.nivel >= 100 || u.sucursales.includes(sucursalId);
-
-// Error de negocio con el mismo formato que los de la base (el manejador central lo traduce a 422).
-function reglaNegocio(mensaje) {
-  const e = new Error(mensaje);
-  e.code = 'P0001';
-  return e;
-}
-
-// Ejecuta fn en una transaccion. fn devuelve [estado, cuerpo]; se responde solo despues del COMMIT.
-async function enTransaccion(res, next, fn) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const [estado, cuerpo] = await fn(client);
-    await client.query('COMMIT');
-    res.status(estado).json(cuerpo);
-  } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
-    next(e);
-  } finally {
-    client.release();
-  }
-}
-
+const { esId, texto, puedeSucursal, reglaNegocio, enTransaccion } = require('../util');
 // Busca la compra y verifica que sea de una sucursal del usuario. Si no, responde 404 (no revela si existe).
 async function compraAccesible(db, req, id) {
   if (!esId(id)) return null;

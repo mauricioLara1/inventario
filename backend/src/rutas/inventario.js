@@ -5,8 +5,7 @@ const { requiereLogin } = require('../middleware/auth');
 const router = express.Router();
 router.use(requiereLogin);
 
-const esId = (x) => Number.isInteger(x) && x > 0;
-const puedeSucursal = (u, sucursalId) => u.nivel >= 100 || u.sucursales.includes(sucursalId);
+const { esId, puedeSucursal } = require('../util');
 
 // Todas las consultas exigen ?sucursal_id=N y que esa sucursal sea del usuario (el owner ve cualquiera).
 function sucursalDe(req, res) {

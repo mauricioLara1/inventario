@@ -7,27 +7,7 @@ const { registrar } = require('../auditoria');
 const router = express.Router();
 router.use(requiereLogin);
 
-const esId = (x) => Number.isInteger(x) && x > 0;
-const texto = (x) => typeof x === 'string' && x.trim().length > 0;
-const puedeSucursal = (u, sucursalId) => u.nivel >= 100 || u.sucursales.includes(sucursalId);
-
-// Ejecuta fn dentro de una transaccion y entrega los errores al manejador central.
-// fn devuelve [estado, cuerpo]; la respuesta se envia solo despues del COMMIT.
-async function enTransaccion(res, next, fn) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const [estado, cuerpo] = await fn(client);
-    await client.query('COMMIT');
-    res.status(estado).json(cuerpo);
-  } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
-    next(e);
-  } finally {
-    client.release();
-  }
-}
-
+const { esId, texto, puedeSucursal, enTransaccion } = require('../util');
 // ---------- Categorias de producto ----------
 
 router.get('/categorias', async (req, res, next) => {
