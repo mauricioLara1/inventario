@@ -197,6 +197,52 @@ test('cambiar la clave propia', async () => {
   assert.equal((await login('admin1', 'OtraClave-4567')).status, 200);
 });
 
+test('compra y venta: stock, IVA, pago, sin stock y anulacion bloqueada', async () => {
+  const prov = await api('POST', '/proveedores', { nombre: 'Proveedor Prueba' }, S.T);
+  assert.equal(prov.status, 201);
+  const cat = await api('POST', '/catalogo/categorias', { nombre: 'Abarrotes' }, S.T);
+  assert.equal(cat.status, 201);
+  const prod = await api('POST', '/catalogo/productos', {
+    categoria_producto_id: cat.body.id, codigo: 'ARR-001', nombre: 'Arroz', impuesto_porcentaje: 19 }, S.T);
+  assert.equal(prod.status, 201);
+  const precio = await api('PUT', `/catalogo/productos/${prod.body.id}/sucursales/${S.suc1}`, { precio_venta: 1000 }, S.T);
+  assert.equal(precio.status, 200);
+
+  // compra de 10 unidades
+  const compra = await api('POST', '/compras', { sucursal_id: S.suc1, proveedor_id: prov.body.id }, S.T);
+  assert.equal(compra.status, 201);
+  const lc = await api('POST', `/compras/${compra.body.id}/lineas`,
+    { producto_id: prod.body.id, cantidad: 10, costo_unitario: 500 }, S.T);
+  assert.equal(lc.status, 201);
+  const rec = await api('POST', `/compras/${compra.body.id}/recibir`, undefined, S.T);
+  assert.equal(rec.status, 200);
+  assert.equal(rec.body.estado, 'recibida');
+  assert.equal(rec.body.lotes.length, 1);
+  assert.equal((await api('POST', `/compras/${compra.body.id}/recibir`, undefined, S.T)).status, 422); // ya recibida
+
+  // venta de 4: 4 x 1000 + 19% = 4760
+  const v = await api('POST', '/ventas', { sucursal_id: S.suc1 }, S.T);
+  assert.equal(v.status, 201);
+  const lv = await api('POST', `/ventas/${v.body.id}/lineas`, { producto_id: prod.body.id, cantidad: 4 }, S.T);
+  assert.equal(lv.status, 201);
+  assert.equal(Number(lv.body.total), 4760);
+  const conf = await api('POST', `/ventas/${v.body.id}/confirmar`, undefined, S.T);
+  assert.equal(conf.status, 200);
+  assert.equal(Number(conf.body.total), 4760);
+  const pago = await api('POST', `/ventas/${v.body.id}/pagos`, { metodo: 'efectivo', monto: 4760 }, S.T);
+  assert.equal(pago.status, 201);
+  assert.equal(Number(pago.body.venta.saldo), 0);
+
+  // vender mas de lo que queda (quedan 6) -> 409 por falta de stock
+  const v2 = await api('POST', '/ventas', { sucursal_id: S.suc1 }, S.T);
+  await api('POST', `/ventas/${v2.body.id}/lineas`, { producto_id: prod.body.id, cantidad: 100 }, S.T);
+  assert.equal((await api('POST', `/ventas/${v2.body.id}/confirmar`, undefined, S.T)).status, 409);
+
+  // anular la compra cuando ya salieron 4 unidades -> 409
+  assert.equal((await api('POST', `/compras/${compra.body.id}/anular`, { motivo: 'prueba de stock' }, S.T)).status, 409);
+  assert.equal((await api('GET', '/informes/cuadre', undefined, S.T)).body.cuadra, true);
+});
+
 // Siempre la ultima: agota los intentos fallidos de esta IP en el servidor de pruebas.
 test('freno de login: tras 10 intentos fallidos responde 429', async () => {
   let ultimo;
