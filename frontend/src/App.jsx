@@ -5,6 +5,9 @@ import Layout from './Layout';
 import Inventario from './pages/Inventario';
 import Catalogo from './pages/Catalogo';
 import Compras from './pages/Compras';
+import Ventas from './pages/Ventas';
+import VentaDetalle from './pages/VentaDetalle';
+import CompraDetalle from './pages/CompraDetalle';
 import Proveedores from './pages/Proveedores';
 
 function Protegida({ children }) {
@@ -21,6 +24,9 @@ export default function App() {
           <Route path="inventario" element={<Inventario />} />
           <Route path="catalogo" element={<Catalogo />} />
           <Route path="compras" element={<Compras />} />
+          <Route path="compras/:id" element={<CompraDetalle />} />
+          <Route path="ventas" element={<Ventas />} />
+          <Route path="ventas/:id" element={<VentaDetalle />} />
           <Route path="proveedores" element={<Proveedores />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -46,3 +46,9 @@ tr.bajo td { color: inherit; }
 input.precio { width: 130px; text-align: right; }
 tr.inactivo td { opacity: .5; }
 .etiqueta.neutra { background: color-mix(in srgb, var(--suave) 20%, transparent); color: var(--suave); }
+.acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+.acciones input { min-width: 260px; }
+button.peligro { background: var(--error); }
+.ancho { flex-basis: 100%; margin: 0; font-size: .85rem; }
+tfoot td { border-bottom: 0; }
+a { color: var(--acento); }

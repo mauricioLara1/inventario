@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from '../api';
 import { pesos, fecha } from '../formato';
 
 const CLASE = { borrador: 'neutra', recibida: 'buena', anulada: 'mala' };
 
 export default function Compras() {
+  const navegar = useNavigate();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [proveedores, setProveedores] = useState([]);
@@ -41,8 +42,7 @@ export default function Compras() {
     if (factura.trim()) cuerpo.numero_factura_proveedor = factura.trim();
     try {
       const c = await api('POST', '/compras', cuerpo);
-      setFactura(''); setAviso(`Compra ${c.numero} creada en borrador`);
-      cargar();
+      navegar(`/compras/${c.id}`);
     } catch (err) { setError(err.message); }
   }
 
@@ -80,7 +80,7 @@ export default function Compras() {
           <tbody>
             {compras.map((c) => (
               <tr key={c.id}>
-                <td>{c.numero}</td><td>{fecha(c.fecha)}</td><td>{c.proveedor}</td>
+                <td><Link to={`/compras/${c.id}`}>{c.numero}</Link></td><td>{fecha(c.fecha)}</td><td>{c.proveedor}</td>
                 <td>{c.numero_factura_proveedor ?? '—'}</td>
                 <td><span className={`etiqueta ${CLASE[c.estado] ?? 'neutra'}`}>{c.estado}</span></td>
                 <td className="num">{pesos(c.total)}</td>
