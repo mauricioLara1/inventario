@@ -243,6 +243,51 @@ test('compra y venta: stock, IVA, pago, sin stock y anulacion bloqueada', async 
   assert.equal((await api('GET', '/informes/cuadre', undefined, S.T)).body.cuadra, true);
 });
 
+test('nota credito: devolver, reingresar, reembolsar; bajas y ajustes', async () => {
+  const cat = await api('POST', '/catalogo/categorias', { nombre: 'Granos' }, S.T);
+  const prod = await api('POST', '/catalogo/productos', {
+    categoria_producto_id: cat.body.id, codigo: 'ARR-002', nombre: 'Frijol', impuesto_porcentaje: 19 }, S.T);
+  assert.equal(prod.status, 201);
+  await api('PUT', `/catalogo/productos/${prod.body.id}/sucursales/${S.suc1}`, { precio_venta: 1000 }, S.T);
+  const prov = await api('POST', '/proveedores', { nombre: 'Proveedor Dos' }, S.T);
+  const compra = await api('POST', '/compras', { sucursal_id: S.suc1, proveedor_id: prov.body.id }, S.T);
+  await api('POST', `/compras/${compra.body.id}/lineas`, { producto_id: prod.body.id, cantidad: 10, costo_unitario: 500 }, S.T);
+  const rec = await api('POST', `/compras/${compra.body.id}/recibir`, undefined, S.T);
+  assert.equal(rec.status, 200);
+  const lote = rec.body.lotes[0].lote_id;
+
+  const v = await api('POST', '/ventas', { sucursal_id: S.suc1 }, S.T);
+  const lv = await api('POST', `/ventas/${v.body.id}/lineas`, { producto_id: prod.body.id, cantidad: 4 }, S.T);
+  assert.equal((await api('POST', `/ventas/${v.body.id}/confirmar`, undefined, S.T)).status, 200);
+  assert.equal((await api('POST', `/ventas/${v.body.id}/pagos`, { metodo: 'efectivo', monto: 4760 }, S.T)).status, 201);
+
+  // nota credito de 1 unidad (1190 con IVA)
+  assert.equal((await api('POST', '/notas-credito', { venta_id: v.body.id }, S.T)).status, 400); // falta motivo
+  const n = await api('POST', '/notas-credito', { venta_id: v.body.id, motivo: 'producto en mal estado' }, S.T);
+  assert.equal(n.status, 201);
+  const ln = await api('POST', `/notas-credito/${n.body.id}/lineas`, { venta_detalle_id: lv.body.id, cantidad: 1 }, S.T);
+  assert.equal(ln.status, 201);
+  assert.equal(Number(ln.body.total), 1190);
+  assert.equal((await api('POST', `/notas-credito/${n.body.id}/confirmar`, undefined, S.T)).status, 200);
+  const re = await api('POST', `/notas-credito/${n.body.id}/reingresos`, { nota_credito_detalle_id: ln.body.id, cantidad: 1 }, S.T);
+  assert.equal(re.status, 201);
+  assert.equal(Number(re.body.reingresado), 1);
+  const de_mas = await api('POST', `/notas-credito/${n.body.id}/reingresos`, { nota_credito_detalle_id: ln.body.id, cantidad: 5 }, S.T);
+  assert.ok(de_mas.status >= 400, 'no debe reingresar mas de lo acreditado');
+  const reem = await api('POST', `/notas-credito/${n.body.id}/reembolsos`, { metodo: 'efectivo', monto: 1190 }, S.T);
+  assert.equal(reem.status, 201);
+  const reem2 = await api('POST', `/notas-credito/${n.body.id}/reembolsos`, { metodo: 'efectivo', monto: 99999 }, S.T);
+  assert.ok(reem2.status >= 400, 'no debe reembolsar de mas');
+
+  // bajas y ajustes
+  const baja = (cantidad, motivo) => api('POST', '/ajustes', { lote_id: lote, tipo: 'baja', cantidad, motivo }, S.T);
+  assert.equal((await baja(1, undefined)).status, 400); // sin motivo
+  assert.equal((await baja(1, 'se danio en bodega')).status, 201);
+  assert.equal((await baja(1000, 'mas de lo que hay')).status, 409); // sin stock
+  const aj = await api('POST', '/ajustes', { lote_id: lote, tipo: 'ajuste', cantidad: -1, motivo: 'conteo fisico' }, S.T);
+  assert.equal(aj.status, 201);
+  assert.equal((await api('GET', '/informes/cuadre', undefined, S.T)).body.cuadra, true);
+});
 // Siempre la ultima: agota los intentos fallidos de esta IP en el servidor de pruebas.
 test('freno de login: tras 10 intentos fallidos responde 429', async () => {
   let ultimo;
