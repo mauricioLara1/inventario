@@ -36,7 +36,9 @@ app.use('/usuarios', require('./rutas/usuarios_gestion'));
 app.use('/sucursales', require('./rutas/sucursales_gestion'));
 app.use('/catalogo', require('./rutas/catalogo_gestion'));
 app.use('/renta-catalogo', require('./rutas/renta_catalogo_gestion'));
+app.use('/proveedores', require('./rutas/proveedores_gestion'));
 app.use('/clientes', require('./rutas/clientes'));
+app.use('/clientes', require('./rutas/clientes_gestion'));
 app.use(require('./middleware/errores').manejarErrores);
 
 app.listen(process.env.PORT || 3000, () => console.log('Servidor en http://localhost:3000'));

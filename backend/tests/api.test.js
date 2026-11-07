@@ -288,6 +288,33 @@ test('nota credito: devolver, reingresar, reembolsar; bajas y ajustes', async ()
   assert.equal(aj.status, 201);
   assert.equal((await api('GET', '/informes/cuadre', undefined, S.T)).body.cuadra, true);
 });
+test('proveedores y clientes: editar y desactivar', async () => {
+  const p = await api('POST', '/proveedores', { nombre: 'Prov Edicion', nit: '900111' }, S.T);
+  const p2 = await api('POST', '/proveedores', { nombre: 'Prov Otro', nit: '900222' }, S.T);
+  assert.equal(p.status, 201);
+  const e = await api('PUT', `/proveedores/${p.body.id}`, { telefono: '3001234567' }, S.T);
+  assert.equal(e.status, 200);
+  assert.equal(e.body.telefono, '3001234567');
+  assert.equal((await api('PUT', `/proveedores/${p.body.id}`, {}, S.T)).status, 400);
+  assert.equal((await api('PUT', `/proveedores/${p2.body.id}`, { nit: '900111' }, S.T)).status, 422); // NIT repetido
+  const d = await api('PUT', `/proveedores/${p.body.id}/activo`, { activo: false }, S.T);
+  assert.equal(d.status, 200);
+  assert.equal(d.body.activo, false);
+  const c = await api('POST', '/compras', { sucursal_id: S.suc1, proveedor_id: p.body.id }, S.T);
+  assert.equal(c.status, 422); // proveedor inactivo no sirve para compras
+
+  const cl = await pool.query("INSERT INTO cliente (nombre) VALUES ('Cliente Dos') RETURNING id");
+  const id = Number(cl.rows[0].id);
+  const ec = await api('PUT', `/clientes/${id}`, { nombre: 'Cliente Dos B', telefono: '3000000000' }, S.T);
+  assert.equal(ec.status, 200);
+  assert.equal(ec.body.nombre, 'Cliente Dos B');
+  assert.equal((await api('PUT', `/clientes/${id}`, { tipo_documento: 'CC' }, S.T)).status, 422); // documento incompleto
+  assert.equal((await api('PUT', `/clientes/${id}`, { tipo_documento: 'CC', numero_documento: '555' }, S.T)).status, 200);
+  const dc = await api('PUT', `/clientes/${id}/activo`, { activo: false }, S.T);
+  assert.equal(dc.status, 200);
+  assert.equal(dc.body.activo, false);
+});
+
 // Siempre la ultima: agota los intentos fallidos de esta IP en el servidor de pruebas.
 test('freno de login: tras 10 intentos fallidos responde 429', async () => {
   let ultimo;

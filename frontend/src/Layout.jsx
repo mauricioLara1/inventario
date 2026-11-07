@@ -22,6 +22,8 @@ export default function Layout() {
         <nav>
           <NavLink to="/inventario">Inventario</NavLink>
           <NavLink to="/catalogo">Catálogo</NavLink>
+          <NavLink to="/compras">Compras</NavLink>
+          <NavLink to="/proveedores">Proveedores</NavLink>
         </nav>
         <span className="quien">{yo ? `${yo.nombre ?? yo.usuario} · ${yo.rol}` : ''}</span>
         <button className="secundario" onClick={salir}>Salir</button>

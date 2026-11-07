@@ -45,3 +45,4 @@ tr.bajo td { color: inherit; }
 .aviso { margin: 0 0 8px; color: #2e9e5b; font-size: .9rem; }
 input.precio { width: 130px; text-align: right; }
 tr.inactivo td { opacity: .5; }
+.etiqueta.neutra { background: color-mix(in srgb, var(--suave) 20%, transparent); color: var(--suave); }
