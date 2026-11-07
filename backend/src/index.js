@@ -5,6 +5,7 @@ const pool = require('./db');
 if (!process.env.JWT_SECRET) { console.error('Falta JWT_SECRET en .env'); process.exit(1); }
 
 const app = express();
+require('./seguridad')(app);
 app.use(express.json());
 
 app.get('/salud', async (req, res) => {
