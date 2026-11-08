@@ -37,8 +37,14 @@ router.get('/stock', async (req, res, next) => {
     const soloBajo = req.query.bajo === 'true';
     const r = await pool.query(
       `SELECT s.producto_id, p.codigo, p.nombre, p.medida, s.cantidad, s.cantidad_vencida,
-              s.cantidad_vendible, s.stock_minimo, s.stock_bajo
+              s.cantidad_vendible, s.stock_minimo, s.stock_bajo,
+              v.proximo_vencimiento, v.dias_para_vencer
          FROM v_stock s JOIN producto p ON p.id = s.producto_id
+         LEFT JOIN LATERAL (
+           SELECT min(l.fecha_caducidad) AS proximo_vencimiento, min(l.dias_para_vencer) AS dias_para_vencer
+             FROM v_lote_detalle l
+            WHERE l.sucursal_id = s.sucursal_id AND l.producto_id = s.producto_id
+              AND l.saldo > 0 AND l.fecha_caducidad IS NOT NULL) v ON true
         WHERE s.sucursal_id = $1
           AND (p.nombre ILIKE $2 OR p.codigo ILIKE $2)
           AND (NOT $3 OR s.stock_bajo)
