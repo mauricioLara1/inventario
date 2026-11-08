@@ -72,7 +72,7 @@ router.put('/:id', async (req, res, next) => {
       const c = await client.query(
         'SELECT nivel_poder FROM categoria_empleado WHERE id = $1 AND activo', [b.categoria_empleado_id]);
       if (!c.rows[0]) throw reglaNegocio('Categoria de empleado no existe');
-      if (c.rows[0].nivel_poder > yo.nivel) {
+      if ((c.rows[0].nivel_poder > yo.nivel || (c.rows[0].nivel_poder === yo.nivel && yo.nivel < 100))) {
         return [403, { error: 'No puedes asignar un rol con mas poder que el tuyo' }];
       }
       if (t.nivel >= 100 && c.rows[0].nivel_poder < 100 && !(await hayOtroOwner(client, id))) {

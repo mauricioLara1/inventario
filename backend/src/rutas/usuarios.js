@@ -51,7 +51,7 @@ router.post('/', async (req, res, next) => {
     const c = await client.query(
       'SELECT nombre, nivel_poder FROM categoria_empleado WHERE id = $1 AND activo', [categoria_empleado_id]);
     if (!c.rows[0]) return res.status(422).json({ error: 'Categoria de empleado no existe' });
-    if (c.rows[0].nivel_poder > yo.nivel) {
+    if ((c.rows[0].nivel_poder > yo.nivel || (c.rows[0].nivel_poder === yo.nivel && yo.nivel < 100))) {
       return res.status(403).json({ error: 'No puedes crear un usuario con mas poder que el tuyo' });
     }
 

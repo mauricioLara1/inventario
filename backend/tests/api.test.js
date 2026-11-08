@@ -322,6 +322,8 @@ test('roles asignables: el owner ve todos y el admin solo los de su nivel o meno
   const a = await api('GET', '/usuarios/roles', undefined, S.T2);
   assert.equal(a.status, 200);
   assert.ok(!a.body.some((x) => x.nombre === 'owner'));
+  assert.ok(!a.body.some((x) => x.nombre === 'gerente'));
+  assert.ok(a.body.some((x) => x.nombre === 'vendedor'));
 });
 
 test('permisos por rol: vendedor, bodega y mantenimiento', async () => {
