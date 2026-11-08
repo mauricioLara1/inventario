@@ -21,6 +21,7 @@ app.use('/auth', require('./rutas/auth'));
 
 app.use('/sucursales', require('./rutas/sucursales'));
 app.use('/usuarios', require('./rutas/usuarios'));
+app.use('/usuarios', require('./rutas/usuarios_roles'));
 app.use('/catalogo', require('./rutas/catalogo'));
 app.use('/proveedores', require('./rutas/proveedores'));
 app.use('/compras', require('./rutas/compras'));

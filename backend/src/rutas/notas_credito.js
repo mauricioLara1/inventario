@@ -1,12 +1,12 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, texto, esMonto, puedeSucursal, reglaNegocio, enTransaccion } = require('../util');
 
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('notas_credito.gestionar'));
 
 const METODOS = ['efectivo', 'transferencia', 'tarjeta', 'otro'];
 

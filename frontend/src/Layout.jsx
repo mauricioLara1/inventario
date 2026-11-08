@@ -28,6 +28,8 @@ export default function Layout() {
           <NavLink to="/rentas">Rentas</NavLink>
           <NavLink to="/catalogo-renta">Catálogo renta</NavLink>
           <NavLink to="/informes">Informes</NavLink>
+          <NavLink to="/usuarios">Usuarios</NavLink>
+          {yo?.rol === 'owner' && <NavLink to="/sucursales">Sucursales</NavLink>}
           <NavLink to="/clientes">Clientes</NavLink>
           <NavLink to="/proveedores">Proveedores</NavLink>
         </nav>

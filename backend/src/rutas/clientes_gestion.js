@@ -1,6 +1,6 @@
 const express = require('express');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, enTransaccion } = require('../util');
 const { reglas, leerCampos, actualizar, rutaActivo } = require('../edicion');
@@ -8,7 +8,7 @@ const { reglas, leerCampos, actualizar, rutaActivo } = require('../edicion');
 // Editar y activar/desactivar clientes (crear, listar y bloquear estan en clientes.js).
 // El tipo y el numero de documento van juntos o ambos vacios: lo exige la base.
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('clientes.editar'));
 
 const RETORNO = 'id, nombre, tipo_documento, numero_documento, telefono, correo, bloqueado, activo';
 

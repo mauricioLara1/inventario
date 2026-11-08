@@ -54,4 +54,13 @@ function requiereNivel(minimo) {
   };
 }
 
-module.exports = { manejarErrores, requiereNivel };
+// Deja pasar si el rol del usuario tiene AL MENOS UNO de los permisos indicados.
+function requierePermiso(...codigos) {
+  return (req, res, next) => {
+    const tiene = req.usuario && req.usuario.permisos && codigos.some((c) => req.usuario.permisos.includes(c));
+    if (!tiene) return res.status(403).json({ error: 'No tienes permiso para esto' });
+    next();
+  };
+}
+
+module.exports = { manejarErrores, requiereNivel, requierePermiso };

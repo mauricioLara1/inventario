@@ -17,16 +17,18 @@ async function requiereLogin(req, res, next) {
   try {
     const r = await pool.query(
       `SELECT c.nombre AS rol, c.nivel_poder AS nivel,
+              (SELECT COALESCE(array_agg(rp.permiso_codigo ORDER BY rp.permiso_codigo), '{}')
+                 FROM rol_permiso rp WHERE rp.categoria_empleado_id = c.id) AS permisos,
               COALESCE(array_agg(s.id::int ORDER BY s.id) FILTER (WHERE s.id IS NOT NULL), '{}') AS sucursales
          FROM usuario u
          JOIN categoria_empleado c ON c.id = u.categoria_empleado_id
          LEFT JOIN sucursal_usuario su ON su.usuario_id = u.id
          LEFT JOIN sucursal s ON s.id = su.sucursal_id AND s.activo
         WHERE u.id = $1 AND u.activo AND c.activo
-        GROUP BY c.nombre, c.nivel_poder`, [d.sub]);
+        GROUP BY c.id, c.nombre, c.nivel_poder`, [d.sub]);
     const u = r.rows[0];
     if (!u) return res.status(401).json({ error: 'Usuario inactivo o inexistente' });
-    req.usuario = { id: d.sub, rol: u.rol, nivel: u.nivel, sucursales: u.sucursales };
+    req.usuario = { id: d.sub, rol: u.rol, nivel: u.nivel, sucursales: u.sucursales, permisos: u.permisos };
     next();
   } catch (e) { next(e); }
 }

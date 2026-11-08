@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, texto, enTransaccion } = require('../util');
 
@@ -38,7 +38,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Crea un cliente. El documento va completo (tipo y numero) o no va.
-router.post('/', requiereNivel(50), async (req, res, next) => {
+router.post('/', requierePermiso('clientes.crear'), async (req, res, next) => {
   const b = req.body || {};
   if (!texto(b.nombre) || !opcional(b.tipo_documento) || !opcional(b.numero_documento) ||
       !opcional(b.telefono) || !opcional(b.correo)) {
@@ -62,7 +62,7 @@ router.post('/', requiereNivel(50), async (req, res, next) => {
 });
 
 // Bloquea o desbloquea. Para bloquear hace falta el motivo.
-router.put('/:id/bloqueo', requiereNivel(50), async (req, res, next) => {
+router.put('/:id/bloqueo', requierePermiso('clientes.editar'), async (req, res, next) => {
   const id = Number(req.params.id);
   const { bloqueado, motivo } = req.body || {};
   if (!esId(id) || typeof bloqueado !== 'boolean' || (bloqueado && !texto(motivo))) {

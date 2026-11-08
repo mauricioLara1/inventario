@@ -89,3 +89,16 @@ button.segmento.activo { background: var(--acento); color: #fff; border-color: v
 .chequeo { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 4px; }
 .chequeo .cumple { color: #2e9e5b; }
 .chequeo .falta { color: var(--error); }
+
+.selector{position:relative;display:inline-block;min-width:240px}
+.selector summary{cursor:pointer;padding:.5rem .7rem;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:6px;list-style:none}
+.selector summary::after{content:'▾';float:right;margin-left:.6rem}
+.selector .lista{position:absolute;z-index:5;background:Canvas;color:CanvasText;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:6px;padding:.3rem;min-width:100%;max-height:220px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.selector .lista label{display:flex;gap:.5rem;align-items:center;padding:.35rem .5rem;cursor:pointer;white-space:nowrap}
+
+/* selector-fix */
+.selector{display:block;width:100%;max-width:320px}
+.selector summary{display:block;box-sizing:border-box;width:100%;background:Canvas;color:CanvasText}
+.selector .lista{position:static;box-shadow:none;margin-top:.3rem;width:100%;box-sizing:border-box;display:block}
+.selector .lista label{display:flex;flex-direction:row;align-items:center;gap:.6rem;width:100%;margin:0;padding:.4rem .5rem;box-sizing:border-box}
+.selector .lista input[type=checkbox]{width:auto;min-width:0;margin:0;padding:0;flex:none}

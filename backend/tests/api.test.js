@@ -41,7 +41,7 @@ before(async () => {
   const roles = await pool.query('SELECT id, nombre FROM categoria_empleado');
   const idRol = (n) => Number(roles.rows.find((c) => c.nombre === n).id);
   S.rolOwner = idRol('owner');
-  S.rolAdmin = idRol('admin_sucursal');
+  S.rolAdmin = idRol('gerente');
   const s = await pool.query("INSERT INTO sucursal (nombre) VALUES ('Principal') RETURNING id");
   S.suc1 = Number(s.rows[0].id);
   const u = await pool.query(
@@ -313,6 +313,48 @@ test('proveedores y clientes: editar y desactivar', async () => {
   const dc = await api('PUT', `/clientes/${id}/activo`, { activo: false }, S.T);
   assert.equal(dc.status, 200);
   assert.equal(dc.body.activo, false);
+});
+
+test('roles asignables: el owner ve todos y el admin solo los de su nivel o menos', async () => {
+  const o = await api('GET', '/usuarios/roles', undefined, S.T);
+  assert.equal(o.status, 200);
+  assert.ok(o.body.some((x) => x.nombre === 'owner') && o.body.some((x) => x.nombre === 'gerente'));
+  const a = await api('GET', '/usuarios/roles', undefined, S.T2);
+  assert.equal(a.status, 200);
+  assert.ok(!a.body.some((x) => x.nombre === 'owner'));
+});
+
+test('permisos por rol: vendedor, bodega y mantenimiento', async () => {
+  const jwt = require('jsonwebtoken');
+  const roles = await pool.query('SELECT id, nombre FROM categoria_empleado');
+  const tokens = {};
+  for (const [rol, usuario] of [['vendedor', 'vend1'], ['bodega', 'bode1'], ['mantenimiento', 'mant1']]) {
+    const idRol = Number(roles.rows.find((c) => c.nombre === rol).id);
+    const u = await pool.query(
+      `INSERT INTO usuario (nombre, usuario, clave_hash, categoria_empleado_id)
+       VALUES ($1, $2, 'sin-login', $3) RETURNING id`, [`Prueba ${rol}`, usuario, idRol]);
+    const id = Number(u.rows[0].id);
+    await pool.query('INSERT INTO sucursal_usuario (usuario_id, sucursal_id) VALUES ($1, $2)', [id, S.suc1]);
+    tokens[rol] = jwt.sign({ sub: id }, process.env.JWT_SECRET);
+  }
+  const { vendedor, bodega, mantenimiento } = tokens;
+
+  const yo = await api('GET', '/auth/yo', undefined, vendedor);
+  assert.equal(yo.status, 200);
+  assert.ok(yo.body.permisos.includes('ventas.gestionar'));
+  assert.ok(!yo.body.permisos.includes('precios.editar'));
+
+  // vendedor: opera ventas y crea clientes, pero no edita ni bloquea clientes
+  assert.notEqual((await api('GET', '/ventas', undefined, vendedor)).status, 403);
+  assert.notEqual((await api('POST', '/clientes', {}, vendedor)).status, 403);
+  assert.equal((await api('PUT', `/clientes/${S.cliente}/activo`, { activo: true }, vendedor)).status, 403);
+  assert.equal((await api('PUT', `/clientes/${S.cliente}/bloqueo`, {}, vendedor)).status, 403);
+
+  // bodega y mantenimiento: ni ventas ni clientes
+  for (const t of [bodega, mantenimiento]) {
+    assert.equal((await api('GET', '/ventas', undefined, t)).status, 403);
+    assert.equal((await api('POST', '/clientes', {}, t)).status, 403);
+  }
 });
 
 // Siempre la ultima: agota los intentos fallidos de esta IP en el servidor de pruebas.
