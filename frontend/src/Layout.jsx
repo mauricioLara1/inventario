@@ -25,6 +25,7 @@ export default function Layout() {
           <NavLink to="/compras">Compras</NavLink>
           <NavLink to="/ventas">Ventas</NavLink>
           <NavLink to="/notas-credito">Notas crédito</NavLink>
+          <NavLink to="/rentas">Rentas</NavLink>
           <NavLink to="/catalogo-renta">Catálogo renta</NavLink>
           <NavLink to="/clientes">Clientes</NavLink>
           <NavLink to="/proveedores">Proveedores</NavLink>

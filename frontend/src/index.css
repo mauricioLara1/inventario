@@ -57,3 +57,11 @@ td.doble { display: flex; gap: 6px; }
 td input { width: 100%; min-width: 90px; padding: 6px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 button.x { background: transparent; color: inherit; padding: 0 0 0 6px; font-size: 1rem; line-height: 1; }
+label.campo { display: grid; gap: 4px; font-size: .8rem; color: var(--suave); }
+.piezas { display: grid; gap: 6px; }
+label.pieza { display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--borde); border-radius: 8px; color: var(--texto); cursor: pointer; }
+label.pieza.elegida { border-color: var(--acento); background: color-mix(in srgb, var(--acento) 12%, transparent); }
+.resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 12px 0; }
+.resumen div { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; padding: 10px 14px; display: grid; }
+.resumen span { color: var(--suave); font-size: .8rem; }
+.resumen strong { font-size: 1.15rem; }

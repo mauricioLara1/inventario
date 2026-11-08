@@ -2,3 +2,4 @@ export const num = (x) => Number(x).toLocaleString('es-CO', { maximumFractionDig
 export const pesos = (x) => (x === null || x === undefined ? '—'
   : Number(x).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }));
 export const fecha = (x) => (x ? new Date(x).toLocaleDateString('es-CO') : '—');
+export const fechaHora = (x) => (x ? new Date(x).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : '—');

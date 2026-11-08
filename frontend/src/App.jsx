@@ -9,6 +9,8 @@ import Ventas from './pages/Ventas';
 import Clientes from './pages/Clientes';
 import NotasCredito from './pages/NotasCredito';
 import CatalogoRenta from './pages/CatalogoRenta';
+import Rentas from './pages/Rentas';
+import RentaDetalle from './pages/RentaDetalle';
 import NotaCreditoDetalle from './pages/NotaCreditoDetalle';
 import VentaDetalle from './pages/VentaDetalle';
 import CompraDetalle from './pages/CompraDetalle';
@@ -34,6 +36,8 @@ export default function App() {
           <Route path="clientes" element={<Clientes />} />
           <Route path="notas-credito" element={<NotasCredito />} />
           <Route path="catalogo-renta" element={<CatalogoRenta />} />
+          <Route path="rentas" element={<Rentas />} />
+          <Route path="rentas/:id" element={<RentaDetalle />} />
           <Route path="notas-credito/:id" element={<NotaCreditoDetalle />} />
           <Route path="proveedores" element={<Proveedores />} />
         </Route>
