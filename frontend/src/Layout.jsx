@@ -24,6 +24,9 @@ export default function Layout() {
           <NavLink to="/catalogo">Catálogo</NavLink>
           <NavLink to="/compras">Compras</NavLink>
           <NavLink to="/ventas">Ventas</NavLink>
+          <NavLink to="/notas-credito">Notas crédito</NavLink>
+          <NavLink to="/catalogo-renta">Catálogo renta</NavLink>
+          <NavLink to="/clientes">Clientes</NavLink>
           <NavLink to="/proveedores">Proveedores</NavLink>
         </nav>
         <span className="quien">{yo ? `${yo.nombre ?? yo.usuario} · ${yo.rol}` : ''}</span>

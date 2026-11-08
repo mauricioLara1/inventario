@@ -12,6 +12,7 @@ export default function VentaDetalle() {
   const navegar = useNavigate();
   const [v, setV] = useState(null);
   const [productos, setProductos] = useState([]);
+  const [stock, setStock] = useState({});
   const [form, setForm] = useState(VACIA);
   const [pago, setPago] = useState(PAGO);
   const [error, setError] = useState('');
@@ -22,7 +23,9 @@ export default function VentaDetalle() {
       const venta = await api('GET', `/ventas/${id}`);
       setV(venta);
       const p = await api('GET', `/catalogo/productos?sucursal_id=${venta.sucursal_id}`);
-      setProductos(p.filter((x) => x.activo && x.habilitado && x.precio_venta !== null));
+      setProductos(p.filter((x) => x.activo));
+      const st = await api('GET', '/inventario/stock?sucursal_id=' + venta.sucursal_id);
+      setStock(Object.fromEntries(st.map((x) => [x.producto_id, Number(x.cantidad_vendible)])));
       setError('');
     } catch (e) { setError(e.message); }
   }, [id]);
@@ -55,6 +58,16 @@ export default function VentaDetalle() {
     hacer(async () => { await api('POST', `/ventas/${id}/pagos`, cuerpo); setPago(PAGO); }, 'Pago registrado');
   };
 
+  async function crearNota() {
+    const m = window.prompt('Motivo de la nota crédito (devolución):');
+    if (!m || !m.trim()) return;
+    setError(''); setAviso('');
+    try {
+      const n = await api('POST', '/notas-credito', { venta_id: Number(id), motivo: m.trim() });
+      navegar('/notas-credito/' + n.id);
+    } catch (e) { setError(e.message); }
+  }
+
   if (!v) return <>{error ? <p className="error">{error}</p> : <p className="suave">Cargando…</p>}</>;
   const borrador = v.estado === 'borrador';
   const confirmada = v.estado === 'confirmada';
@@ -71,7 +84,14 @@ export default function VentaDetalle() {
         <form className="formulario" onSubmit={agregar}>
           <select value={form.producto_id} onChange={(e) => setForm({ ...form, producto_id: e.target.value })} required>
             <option value="">Producto…</option>
-            {productos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre} · {pesos(p.precio_venta)}</option>)}
+            {productos.map((p) => {
+              const sinPrecio = p.precio_venta === null;
+              const disp = stock[p.id] ?? 0;
+              const nota = sinPrecio ? ' · sin precio (ponlo en Catálogo)'
+                : disp <= 0 ? ' · sin stock'
+                : ' · ' + pesos(p.precio_venta) + ' · disp. ' + num(disp);
+              return <option key={p.id} value={p.id} disabled={sinPrecio || disp <= 0}>{p.codigo} · {p.nombre}{nota}</option>;
+            })}
           </select>
           <input type="number" min="0" step="any" placeholder="Cantidad" value={form.cantidad}
                  onChange={(e) => setForm({ ...form, cantidad: e.target.value })} required />
@@ -120,6 +140,9 @@ export default function VentaDetalle() {
 
       {confirmada && (
         <>
+          <div className="acciones">
+            <button className="secundario" onClick={crearNota}>Crear nota crédito (devolución)</button>
+          </div>
           <h3>Pagos</h3>
           {v.pagos.length > 0 && (
             <div className="tabla-caja">

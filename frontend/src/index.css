@@ -52,3 +52,8 @@ button.peligro { background: var(--error); }
 .ancho { flex-basis: 100%; margin: 0; font-size: .85rem; }
 tfoot td { border-bottom: 0; }
 a { color: var(--acento); }
+.fila-acciones { display: flex; gap: 6px; }
+td.doble { display: flex; gap: 6px; }
+td input { width: 100%; min-width: 90px; padding: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+button.x { background: transparent; color: inherit; padding: 0 0 0 6px; font-size: 1rem; line-height: 1; }

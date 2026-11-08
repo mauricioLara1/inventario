@@ -4,7 +4,7 @@ import { api } from '../api';
 import { num, pesos, fecha } from '../formato';
 
 const CLASE = { borrador: 'neutra', recibida: 'buena', anulada: 'mala' };
-const VACIA = { producto_id: '', cantidad: '', costo_unitario: '', fecha_caducidad: '' };
+const VACIA = { producto_id: '', cantidad: '', costo_unitario: '', fecha_caducidad: '', precio_venta: '' };
 
 export default function CompraDetalle() {
   const { id } = useParams();
@@ -21,7 +21,7 @@ export default function CompraDetalle() {
       const compra = await api('GET', `/compras/${id}`);
       setC(compra);
       const p = await api('GET', `/catalogo/productos?sucursal_id=${compra.sucursal_id}`);
-      setProductos(p.filter((x) => x.activo && x.precio_venta !== null));
+      setProductos(p.filter((x) => x.activo));
       setError('');
     } catch (e) { setError(e.message); }
   }, [id]);
@@ -40,7 +40,14 @@ export default function CompraDetalle() {
     const cuerpo = { producto_id: Number(form.producto_id), cantidad: Number(form.cantidad),
                      costo_unitario: Number(form.costo_unitario) };
     if (form.fecha_caducidad) cuerpo.fecha_caducidad = form.fecha_caducidad;
-    hacer(async () => { await api('POST', `/compras/${id}/lineas`, cuerpo); setForm(VACIA); });
+    hacer(async () => {
+      if (prod && prod.precio_venta === null) {
+        await api('PUT', `/catalogo/productos/${prod.id}/sucursales/${c.sucursal_id}`,
+          { precio_venta: Number(form.precio_venta) });
+      }
+      await api('POST', `/compras/${id}/lineas`, cuerpo);
+      setForm(VACIA);
+    });
   };
   const quitar = (l) => hacer(() => api('DELETE', `/compras/${id}/lineas/${l.id}`));
   const recibir = () => {
@@ -72,14 +79,18 @@ export default function CompraDetalle() {
         <form className="formulario" onSubmit={agregar}>
           <select value={form.producto_id} onChange={campo('producto_id')} required>
             <option value="">Producto…</option>
-            {productos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre}</option>)}
+            {productos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre}{p.precio_venta === null ? ' · sin precio' : ''}</option>)}
           </select>
           <input type="number" min="0" step="any" placeholder="Cantidad" value={form.cantidad} onChange={campo('cantidad')} required />
           <input type="number" min="0" step="any" placeholder="Costo unitario" value={form.costo_unitario} onChange={campo('costo_unitario')} required />
           <input type="date" title="Caducidad" value={form.fecha_caducidad} onChange={campo('fecha_caducidad')}
                  required={!!prod?.maneja_caducidad} />
+          {prod && prod.precio_venta === null && (
+            <input type="number" min="0" step="any" placeholder="Precio de venta (este producto aún no tiene)"
+                   value={form.precio_venta} onChange={campo('precio_venta')} required />
+          )}
           <button>Agregar línea</button>
-          <p className="suave ancho">Solo salen productos con precio en esta sucursal (se lo pones en Catálogo). La caducidad es obligatoria si el producto la maneja.</p>
+          <p className="suave ancho">Si el producto aún no tiene precio en esta sucursal, aquí mismo se lo pones. La caducidad es obligatoria si el producto la maneja.</p>
         </form>
       )}
 
