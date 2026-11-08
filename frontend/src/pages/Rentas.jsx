@@ -5,6 +5,12 @@ import { pesos, fechaHora } from '../formato';
 
 const CLASE = { abierta: 'neutra', cerrada: 'buena', cancelada: 'mala' };
 const FORM = { cliente_id: '', fecha: '', metodo: 'efectivo', exonerar: false };
+const p2 = (n) => String(n).padStart(2, '0');
+const desdeAhora = (horas) => {
+  const d = new Date(Date.now() + horas * 3600000);
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+};
+const RAPIDOS = [['+1 hora', 1], ['+3 horas', 3], ['Mañana', 24], ['+3 días', 72], ['+1 semana', 168]];
 
 export default function Rentas() {
   const navegar = useNavigate();
@@ -13,10 +19,11 @@ export default function Rentas() {
   const [rentas, setRentas] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [disponibles, setDisponibles] = useState([]);
-  const [depositoDe, setDepositoDe] = useState({});
+  const [productos, setProductos] = useState([]);
   const [estado, setEstado] = useState('');
   const [form, setForm] = useState(FORM);
-  const [elegidas, setElegidas] = useState([]);
+  const [cant, setCant] = useState({});
+  const [buscar, setBuscar] = useState('');
   const [error, setError] = useState('');
 
   const cargar = useCallback(async () => {
@@ -28,9 +35,7 @@ export default function Rentas() {
         api('GET', `/renta-catalogo/unidades?sucursal_id=${sucursal}&estado=disponible`),
         api('GET', '/renta-catalogo/productos?activo=true'),
       ]);
-      setRentas(r); setClientes(c); setDisponibles(u);
-      setDepositoDe(Object.fromEntries(p.map((x) => [x.id, Number(x.deposito)])));
-      setError('');
+      setRentas(r); setClientes(c); setDisponibles(u); setProductos(p); setError('');
     } catch (e) { setError(e.message); }
   }, [sucursal, estado]);
 
@@ -42,17 +47,30 @@ export default function Rentas() {
   useEffect(() => { cargar(); }, [cargar]);
 
   const nombreCliente = Object.fromEntries(clientes.map((c) => [c.id, c.nombre]));
-  const deposito = disponibles.filter((u) => elegidas.includes(u.id))
-    .reduce((t, u) => t + (depositoDe[u.producto_renta_id] ?? 0), 0);
-  const alternar = (id) => setElegidas(elegidas.includes(id) ? elegidas.filter((x) => x !== id) : [...elegidas, id]);
+
+  // Piezas disponibles agrupadas por producto (ya vienen ordenadas por código).
+  const porProducto = {};
+  for (const u of disponibles) (porProducto[u.producto_renta_id] ||= []).push(u);
+  const t = buscar.trim().toLowerCase();
+  const lista = productos.filter((p) => (porProducto[p.id]?.length ?? 0) > 0)
+    .filter((p) => !t || [p.codigo, p.nombre, p.categoria].some((x) => String(x).toLowerCase().includes(t)));
+  // El sistema asigna las primeras N piezas disponibles de cada producto.
+  const asignadas = productos.flatMap((p) => (porProducto[p.id] ?? []).slice(0, cant[p.id] ?? 0));
+  const deposito = productos.reduce((s, p) => s + Number(p.deposito) * Math.min(cant[p.id] ?? 0, porProducto[p.id]?.length ?? 0), 0);
+
+  function cambiarCantidad(p, valor) {
+    const max = porProducto[p.id]?.length ?? 0;
+    const n = Math.max(0, Math.min(Math.floor(Number(valor) || 0), max));
+    setCant({ ...cant, [p.id]: n });
+  }
 
   async function abrir(e) {
     e.preventDefault();
     setError('');
-    if (elegidas.length === 0) { setError('Elige al menos una pieza'); return; }
+    if (asignadas.length === 0) { setError('Elige la cantidad de al menos un producto'); return; }
     const cuerpo = {
       sucursal_id: Number(sucursal), cliente_id: Number(form.cliente_id),
-      fecha_prevista_devolucion: new Date(form.fecha).toISOString(), unidades: elegidas };
+      fecha_prevista_devolucion: new Date(form.fecha).toISOString(), unidades: asignadas.map((u) => u.id) };
     if (form.exonerar) cuerpo.exonerar_deposito = true; else cuerpo.deposito_metodo = form.metodo;
     try {
       const r = await api('POST', '/rentas', cuerpo);
@@ -75,18 +93,50 @@ export default function Rentas() {
         <label className="campo">Devolución prevista
           <input type="datetime-local" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required />
         </label>
-        <div className="piezas ancho">
-          <strong>Piezas disponibles</strong>
-          {disponibles.length === 0 && <span className="suave"> No hay piezas disponibles en esta sucursal.</span>}
-          <div className="chips">
-            {disponibles.map((u) => (
-              <label key={u.id} className={`pieza ${elegidas.includes(u.id) ? 'elegida' : ''}`}>
-                <input type="checkbox" checked={elegidas.includes(u.id)} onChange={() => alternar(u.id)} />
-                {u.codigo} · {u.producto}
-              </label>
-            ))}
-          </div>
+        <div className="chips ancho">
+          {RAPIDOS.map(([texto, horas]) => (
+            <button type="button" key={texto} className="secundario"
+                    onClick={() => setForm({ ...form, fecha: desdeAhora(horas) })}>{texto}</button>
+          ))}
         </div>
+
+        <div className="ancho">
+          <input className="buscador" placeholder="Buscar producto, código o categoría" value={buscar}
+                 onChange={(e) => setBuscar(e.target.value)} />
+        </div>
+        <div className="tabla-caja ancho">
+          <table>
+            <thead>
+              <tr><th>Código</th><th>Producto</th><th>Categoría</th><th className="num">Tarifa</th>
+                  <th className="num">Depósito</th><th className="num">Disponibles</th><th className="num">Cantidad</th></tr>
+            </thead>
+            <tbody>
+              {lista.map((p) => (
+                <tr key={p.id} className={(cant[p.id] ?? 0) > 0 ? 'sel' : ''}>
+                  <td>{p.codigo}</td><td>{p.nombre}</td><td>{p.categoria}</td>
+                  <td className="num">{pesos(p.precio)} <span className="suave">/ {p.formato}</span></td>
+                  <td className="num">{pesos(p.deposito)}</td>
+                  <td className="num">{porProducto[p.id].length}</td>
+                  <td className="num">
+                    <input className="cantidad" type="number" min="0" max={porProducto[p.id].length} placeholder="0"
+                           value={cant[p.id] ?? ''} onChange={(e) => cambiarCantidad(p, e.target.value)} />
+                  </td>
+                </tr>
+              ))}
+              {lista.length === 0 && (
+                <tr><td colSpan="7" className="vacio">
+                  {productos.length === 0 || disponibles.length === 0
+                    ? <>No hay piezas disponibles en esta sucursal. Agrégalas en <Link to="/catalogo-renta">Catálogo renta</Link>.</>
+                    : 'Ningún producto coincide con la búsqueda'}
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {asignadas.length > 0 && (
+          <p className="ancho suave">Piezas asignadas: {asignadas.map((u) => u.codigo).join(', ')}</p>
+        )}
+
         <label className="check">
           <input type="checkbox" checked={form.exonerar} onChange={(e) => setForm({ ...form, exonerar: e.target.checked })} />
           Exonerar depósito
@@ -99,11 +149,11 @@ export default function Rentas() {
             <option value="otro">Depósito otro</option>
           </select>
         )}
-        <button>Abrir renta {elegidas.length > 0 && !form.exonerar ? `· depósito ${pesos(deposito)}` : ''}</button>
+        <button>Abrir renta {asignadas.length > 0 ? `· ${asignadas.length} pieza(s)` : ''}{asignadas.length > 0 && !form.exonerar ? ` · depósito ${pesos(deposito)}` : ''}</button>
       </form>
 
       <div className="filtros">
-        <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
+        <select value={sucursal} onChange={(e) => { setSucursal(e.target.value); setCant({}); }}>
           {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
         </select>
         <select value={estado} onChange={(e) => setEstado(e.target.value)}>

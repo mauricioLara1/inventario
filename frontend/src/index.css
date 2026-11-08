@@ -63,5 +63,29 @@ label.pieza { display: flex; flex-direction: row; align-items: center; gap: 6px;
 label.pieza.elegida { border-color: var(--acento); background: color-mix(in srgb, var(--acento) 12%, transparent); }
 .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 12px 0; }
 .resumen div { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; padding: 10px 14px; display: grid; }
-.resumen span { color: var(--suave); font-size: .8rem; }
+.resumen div > span:first-child { color: var(--suave); font-size: .8rem; }
 .resumen strong { font-size: 1.15rem; }
+.buscador { width: 100%; }
+input.cantidad { width: 80px; text-align: right; }
+tr.sel td { background: color-mix(in srgb, var(--acento) 12%, transparent); }
+.campo-f { display: grid; gap: 4px; flex: 1 1 170px; min-width: 150px; align-content: start; }
+.campo-et { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--suave); }
+.ayuda { position: relative; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid var(--suave); font-size: .7rem; font-style: italic; cursor: help; color: var(--suave); }
+.ayuda:hover, .ayuda:focus { border-color: var(--acento); color: var(--acento); outline: none; }
+.globo { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  width: 230px; padding: 8px 10px; border-radius: 8px; background: var(--texto); color: var(--fondo);
+  font-size: .8rem; font-style: normal; line-height: 1.35; text-align: left; z-index: 10; }
+.ayuda:hover .globo, .ayuda:focus .globo { display: block; }
+.resumen .fuerte { border-color: var(--acento); }
+.resumen div > span:first-child { display: flex; align-items: center; gap: 6px; }
+.guia { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--borde); background: var(--panel); margin: 10px 0; }
+.guia.ok { border-color: #2e9e5b; background: color-mix(in srgb, #2e9e5b 12%, transparent); }
+.guia.aviso { border-color: #d98e04; background: color-mix(in srgb, #d98e04 12%, transparent); }
+.guia.info { border-color: var(--acento); background: color-mix(in srgb, var(--acento) 10%, transparent); }
+.segmentos { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+button.segmento { background: transparent; color: var(--texto); border: 1px solid var(--borde); }
+button.segmento.activo { background: var(--acento); color: #fff; border-color: var(--acento); }
+.chequeo { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 4px; }
+.chequeo .cumple { color: #2e9e5b; }
+.chequeo .falta { color: var(--error); }
