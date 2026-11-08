@@ -10,6 +10,7 @@ import Clientes from './pages/Clientes';
 import NotasCredito from './pages/NotasCredito';
 import CatalogoRenta from './pages/CatalogoRenta';
 import Rentas from './pages/Rentas';
+import Informes from './pages/Informes';
 import RentaDetalle from './pages/RentaDetalle';
 import NotaCreditoDetalle from './pages/NotaCreditoDetalle';
 import VentaDetalle from './pages/VentaDetalle';
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="notas-credito" element={<NotasCredito />} />
           <Route path="catalogo-renta" element={<CatalogoRenta />} />
           <Route path="rentas" element={<Rentas />} />
+          <Route path="informes" element={<Informes />} />
           <Route path="rentas/:id" element={<RentaDetalle />} />
           <Route path="notas-credito/:id" element={<NotaCreditoDetalle />} />
           <Route path="proveedores" element={<Proveedores />} />
