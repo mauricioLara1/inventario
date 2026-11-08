@@ -42,3 +42,35 @@ freno de intentos fallidos en el login, gitleaks en pre-commit y auditoría.
 - Ramas: `feat/`, `fix/`, `docs/`, `chore/` desde `main`, merge por Pull Request
 - Commits: Conventional Commits
 - Versiones: tags semánticos (`v0.1.0`)
+
+## Frontend
+
+```bash
+cd frontend
+npm install        # solo la primera vez
+npm run dev        # http://localhost:5173
+```
+
+El backend debe estar corriendo (por defecto en `http://localhost:3000`). Para otra dirección: variable `VITE_API_URL`.
+
+## Roles y permisos
+
+Cada rol es un paquete de permisos (tablas `permiso` y `rol_permiso`). Las rutas del backend piden permisos, no niveles.
+
+| Rol | Alcance |
+|---|---|
+| owner | Todo el negocio: sucursales, usuarios, configuración y todos los módulos |
+| gerente | Administra sus sucursales: usuarios de menor nivel, catálogo, precios, compras, ventas, inventario, rentas e informes |
+| vendedor | Ventas, pagos, clientes y contratos de renta; consulta catálogo y stock |
+| bodega | Recibe compras y ajusta inventario con motivo; consulta compras, lotes y kardex |
+| mantenimiento | Consulta piezas de renta y cambia su estado físico |
+
+Quien crea usuarios solo puede asignar roles de **nivel menor** al suyo (el owner puede asignar cualquiera).
+
+## Migraciones
+
+Los cambios de base de datos posteriores a `schema.sql` viven en `backend/db/migrations/` (son idempotentes). Las pruebas las aplican solas. En la base real:
+
+```bash
+docker exec -i inventario_db psql -v ON_ERROR_STOP=1 -U inventario_owner -d inventario < backend/db/migrations/001_roles_permisos.sql
+```
