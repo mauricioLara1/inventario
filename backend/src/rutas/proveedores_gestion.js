@@ -1,6 +1,6 @@
 const express = require('express');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, enTransaccion } = require('../util');
 const { reglas, leerCampos, actualizar, rutaActivo } = require('../edicion');
@@ -8,7 +8,7 @@ const { reglas, leerCampos, actualizar, rutaActivo } = require('../edicion');
 // Editar y activar/desactivar proveedores (crear y listar estan en proveedores.js).
 // Un proveedor inactivo no aparece al crear compras, pero sus compras anteriores se conservan.
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('proveedores.gestionar'));
 
 const RETORNO = 'id, nombre, nit, telefono, correo, direccion, activo';
 

@@ -1,9 +1,10 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
+const { requierePermiso } = require('../middleware/errores');
 
 const router = express.Router();
-router.use(requiereLogin);
+router.use(requiereLogin, requierePermiso('inventario.ver'));
 
 const { esId, puedeSucursal } = require('../util');
 

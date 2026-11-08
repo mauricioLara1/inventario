@@ -1,11 +1,12 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, (req, res, next) =>
+  (req.method === 'GET' ? requierePermiso('compras.ver', 'compras.gestionar') : requierePermiso('compras.gestionar'))(req, res, next));
 
 const { esId, texto, puedeSucursal, reglaNegocio, enTransaccion } = require('../util');
 // Busca la compra y verifica que sea de una sucursal del usuario. Si no, responde 404 (no revela si existe).

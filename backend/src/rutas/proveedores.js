@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 
 const router = express.Router();
@@ -25,7 +25,7 @@ router.get('/', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/', requiereNivel(50), async (req, res, next) => {
+router.post('/', requierePermiso('proveedores.gestionar'), async (req, res, next) => {
   const b = req.body || {};
   if (!texto(b.nombre) || !opcional(b.nit) || !opcional(b.telefono) ||
       !opcional(b.correo) || !opcional(b.direccion)) {

@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 
 const router = express.Router();
@@ -10,7 +10,7 @@ router.use(requiereLogin);
 const { esId, texto, puedeSucursal, enTransaccion } = require('../util');
 // ---------- Categorias de producto ----------
 
-router.get('/categorias', async (req, res, next) => {
+router.get('/categorias', requierePermiso('catalogo.ver', 'catalogo.editar'), async (req, res, next) => {
   try {
     const r = await pool.query(
       'SELECT id, nombre, maneja_caducidad FROM categoria_producto WHERE activo ORDER BY nombre');
@@ -18,7 +18,7 @@ router.get('/categorias', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/categorias', requiereNivel(50), async (req, res, next) => {
+router.post('/categorias', requierePermiso('catalogo.editar'), async (req, res, next) => {
   const { nombre, maneja_caducidad } = req.body || {};
   if (!texto(nombre)) return res.status(400).json({ error: 'Falta el nombre' });
   if (maneja_caducidad !== undefined && typeof maneja_caducidad !== 'boolean') {
@@ -39,7 +39,7 @@ router.post('/categorias', requiereNivel(50), async (req, res, next) => {
 
 // Lista: ?q=texto busca por nombre, codigo o codigo de barras.
 // Con ?sucursal_id=N agrega precio y stock minimo en esa sucursal (debe ser tuya, salvo owner).
-router.get('/productos', async (req, res, next) => {
+router.get('/productos', requierePermiso('catalogo.ver', 'catalogo.editar'), async (req, res, next) => {
   try {
     const q = typeof req.query.q === 'string' ? `%${req.query.q.trim()}%` : '%';
     const sucursalId = req.query.sucursal_id === undefined ? null : Number(req.query.sucursal_id);
@@ -61,7 +61,7 @@ router.get('/productos', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/productos', requiereNivel(50), async (req, res, next) => {
+router.post('/productos', requierePermiso('catalogo.editar'), async (req, res, next) => {
   const b = req.body || {};
   const pct = b.impuesto_porcentaje === undefined ? 0 : b.impuesto_porcentaje;
   if (!esId(b.categoria_producto_id) || !texto(b.codigo) || !texto(b.nombre) ||
@@ -94,7 +94,7 @@ router.post('/productos', requiereNivel(50), async (req, res, next) => {
 });
 
 // Habilita un producto en una sucursal y fija su precio / stock minimo (crea o actualiza).
-router.put('/productos/:id/sucursales/:sucursalId', requiereNivel(50), async (req, res, next) => {
+router.put('/productos/:id/sucursales/:sucursalId', requierePermiso('precios.editar'), async (req, res, next) => {
   const productoId = Number(req.params.id);
   const sucursalId = Number(req.params.sucursalId);
   const { precio_venta, stock_minimo, activo } = req.body || {};

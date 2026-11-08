@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, texto, reglaNegocio, enTransaccion } = require('../util');
 
@@ -9,7 +9,7 @@ const { esId, texto, reglaNegocio, enTransaccion } = require('../util');
 // Un admin solo gestiona usuarios de rol MENOR al suyo y que compartan una sucursal con el.
 // El owner gestiona a todos, pero siempre debe quedar al menos un owner activo.
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('usuarios.gestionar'));
 
 // Usuario con su rol y todas sus sucursales.
 async function detalle(db, id) {

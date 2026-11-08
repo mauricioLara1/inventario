@@ -1,6 +1,6 @@
 const express = require('express');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, enTransaccion } = require('../util');
 const { reglas, leerCampos, actualizar, rutaActivo, reglaNegocio } = require('../edicion');
@@ -8,7 +8,7 @@ const { reglas, leerCampos, actualizar, rutaActivo, reglaNegocio } = require('..
 // Editar y activar/desactivar categorias y productos de venta (crear y listar estan en catalogo.js).
 // El catalogo es global: lo edita un admin o el owner. El precio por sucursal se fija en catalogo.js.
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('catalogo.editar'));
 
 // ---------- Categorias de producto ----------
 

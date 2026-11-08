@@ -1,14 +1,14 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, texto, puedeSucursal, enTransaccion } = require('../util');
 
 // Bajas y ajustes manuales de inventario: movimientos del kardex sobre un lote, siempre con motivo.
 // El saldo del lote lo mueve la base; si quedara en negativo falla con INV01 (409).
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('inventario.ajustar'));
 
 const TIPOS = ['baja', 'ajuste'];
 

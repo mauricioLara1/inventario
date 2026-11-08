@@ -355,6 +355,19 @@ test('permisos por rol: vendedor, bodega y mantenimiento', async () => {
     assert.equal((await api('GET', '/ventas', undefined, t)).status, 403);
     assert.equal((await api('POST', '/clientes', {}, t)).status, 403);
   }
+
+  // bodega: inventario y compras sí; informes y proveedores no
+  assert.notEqual((await api('GET', '/inventario/stock', undefined, bodega)).status, 403);
+  assert.notEqual((await api('GET', '/compras', undefined, bodega)).status, 403);
+  assert.equal((await api('GET', '/informes/ventas', undefined, bodega)).status, 403);
+  assert.equal((await api('POST', '/proveedores', {}, bodega)).status, 403);
+  // vendedor: ve stock, pero no compras ni informes
+  assert.notEqual((await api('GET', '/inventario/stock', undefined, vendedor)).status, 403);
+  assert.equal((await api('GET', '/compras', undefined, vendedor)).status, 403);
+  assert.equal((await api('GET', '/informes/ventas', undefined, vendedor)).status, 403);
+  // mantenimiento: sin inventario ni compras
+  assert.equal((await api('GET', '/inventario/stock', undefined, mantenimiento)).status, 403);
+  assert.equal((await api('GET', '/compras', undefined, mantenimiento)).status, 403);
 });
 
 // Siempre la ultima: agota los intentos fallidos de esta IP en el servidor de pruebas.

@@ -1,12 +1,13 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, texto, puedeSucursal, enTransaccion } = require('../util');
 
 const router = express.Router();
-router.use(requiereLogin);
+router.use(requiereLogin, (req, res, next) =>
+  (req.method === 'GET' ? requierePermiso('rentas.consultar', 'rentas.catalogo', 'rentas.operar')(req, res, next) : next()));
 
 // Dinero no negativo con maximo 2 decimales (el precio o el deposito pueden ser 0).
 const esDinero = (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 &&
@@ -35,7 +36,7 @@ router.get('/conceptos', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/conceptos', requiereNivel(50), async (req, res, next) => {
+router.post('/conceptos', requierePermiso('rentas.catalogo'), async (req, res, next) => {
   const b = req.body || {};
   if (!texto(b.nombre) || !opcionalTexto(b.descripcion)) {
     return res.status(400).json({ error: 'Datos incompletos o invalidos (nombre; descripcion opcional)' });
@@ -61,7 +62,7 @@ router.get('/categorias', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/categorias', requiereNivel(50), async (req, res, next) => {
+router.post('/categorias', requierePermiso('rentas.catalogo'), async (req, res, next) => {
   const b = req.body || {};
   if (!texto(b.nombre) || !opcionalTexto(b.descripcion)) {
     return res.status(400).json({ error: 'Datos incompletos o invalidos (nombre; descripcion opcional)' });
@@ -111,7 +112,7 @@ router.get('/productos', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/productos', requiereNivel(50), async (req, res, next) => {
+router.post('/productos', requierePermiso('rentas.catalogo'), async (req, res, next) => {
   const b = req.body || {};
   const imp = b.impuesto_porcentaje === undefined ? 0 : b.impuesto_porcentaje;
   const dep = b.deposito === undefined ? 0 : b.deposito;
@@ -178,7 +179,7 @@ router.get('/unidades', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/unidades', requiereNivel(50), async (req, res, next) => {
+router.post('/unidades', requierePermiso('rentas.catalogo'), async (req, res, next) => {
   const b = req.body || {};
   if (!esId(b.producto_renta_id) || !esId(b.sucursal_id) || !texto(b.codigo)) {
     return res.status(400).json({ error: 'Datos incompletos o invalidos (producto_renta_id, sucursal_id, codigo)' });
@@ -199,7 +200,7 @@ router.post('/unidades', requiereNivel(50), async (req, res, next) => {
 });
 
 // Cambio manual de estado. "rentada" no se pone ni se quita a mano: la base lo rechaza.
-router.put('/unidades/:id/estado', requiereNivel(50), async (req, res, next) => {
+router.put('/unidades/:id/estado', requierePermiso('rentas.estado_piezas', 'rentas.catalogo'), async (req, res, next) => {
   const b = req.body || {};
   if (!ESTADOS_MANUALES.includes(b.estado)) {
     return res.status(400).json({ error: `Estado invalido (${ESTADOS_MANUALES.join(', ')})` });
@@ -230,7 +231,7 @@ router.get('/unidades/:id/notas', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/unidades/:id/notas', requiereNivel(50), async (req, res, next) => {
+router.post('/unidades/:id/notas', requierePermiso('rentas.estado_piezas', 'rentas.catalogo'), async (req, res, next) => {
   const b = req.body || {};
   if (!texto(b.comentario)) return res.status(400).json({ error: 'Falta el comentario' });
   const id = Number(req.params.id);

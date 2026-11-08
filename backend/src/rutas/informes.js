@@ -1,12 +1,12 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { esId, puedeSucursal } = require('../util');
 
 // Informes de solo lectura: casi todo sale de las vistas de la base.
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(50));
+router.use(requiereLogin, requierePermiso('informes.ver'));
 
 // Los dias se cuentan en la hora de Colombia, no en la del servidor.
 const ZONA = 'America/Bogota';
@@ -122,7 +122,7 @@ router.get('/por-vencer', async (req, res, next) => {
 
 // ---------- Cuadre de integridad: DEBE devolver una lista vacia (solo owner) ----------
 
-router.get('/cuadre', requiereNivel(100), async (req, res, next) => {
+router.get('/cuadre', requierePermiso('informes.cuadre'), async (req, res, next) => {
   try {
     const r = await pool.query('SELECT * FROM v_cuadre_lote ORDER BY lote_id LIMIT 500');
     res.json({ cuadra: r.rows.length === 0, descuadres: r.rows });

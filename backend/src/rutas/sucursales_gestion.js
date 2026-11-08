@@ -1,6 +1,6 @@
 const express = require('express');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 const { esId, enTransaccion } = require('../util');
 const { reglas, leerCampos, actualizar, rutaActivo, reglaNegocio } = require('../edicion');
@@ -8,7 +8,7 @@ const { reglas, leerCampos, actualizar, rutaActivo, reglaNegocio } = require('..
 // Editar y activar/desactivar sucursales: solo owner (crear y listar estan en sucursales.js).
 // Una sucursal inactiva deja de aparecer en el acceso de sus usuarios al instante.
 const router = express.Router();
-router.use(requiereLogin, requiereNivel(100));
+router.use(requiereLogin, requierePermiso('sucursales.gestionar'));
 
 router.put('/:id', async (req, res, next) => {
   const id = Number(req.params.id);

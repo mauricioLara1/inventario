@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requiereLogin } = require('../middleware/auth');
-const { requiereNivel } = require('../middleware/errores');
+const { requiereNivel, requierePermiso } = require('../middleware/errores');
 const { registrar } = require('../auditoria');
 
 const router = express.Router();
@@ -19,7 +19,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // Crea una sucursal: solo owner.
-router.post('/', requiereNivel(100), async (req, res, next) => {
+router.post('/', requierePermiso('sucursales.gestionar'), async (req, res, next) => {
   const { nombre, direccion } = req.body || {};
   if (typeof nombre !== 'string' || !nombre.trim()) {
     return res.status(400).json({ error: 'Falta el nombre' });
