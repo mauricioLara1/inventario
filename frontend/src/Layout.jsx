@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api, sesion } from './api';
+import { useTranslation } from 'react-i18next';
 
 // Cada enlace se muestra si el rol tiene AL MENOS UNO de estos permisos.
 const MENU = [
@@ -21,6 +22,7 @@ const MENU = [
 export default function Layout() {
   const [yo, setYo] = useState(null);
   const navegar = useNavigate();
+  const { t, i18n } = useTranslation();
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -46,14 +48,18 @@ export default function Layout() {
       <header className="barra">
         <strong>Inventario</strong>
         <nav>
-          {visibles.map((i) => <NavLink key={i.to} to={i.to}>{i.texto}</NavLink>)}
+          {visibles.map((i) => <NavLink key={i.to} to={i.to}>{t('menu.' + i.to.slice(1))}</NavLink>)}
         </nav>
         <span className="quien">{yo ? `${yo.nombre ?? yo.usuario} · ${yo.rol}` : ''}</span>
-        <button className="secundario" onClick={salir}>Salir</button>
+        <select aria-label={t('idioma')} value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)}>
+          <option value="es">ES</option>
+          <option value="en">EN</option>
+        </select>
+        <button className="secundario" onClick={salir}>{t('salir')}</button>
       </header>
       <main className="contenido">
         {yo && visibles.length === 0
-          ? <p className="error">Tu rol no tiene pantallas disponibles. Pide a un administrador que revise tus permisos.</p>
+          ? <p className="error">{t('sinPantallas')}</p>
           : <Outlet />}
       </main>
     </>

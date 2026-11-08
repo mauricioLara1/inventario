@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { num, pesos } from '../formato';
 import Campo from '../Campo';
+import { useTranslation } from 'react-i18next';
 
 const TABS = [
   ['ventas', 'Ventas', 'Ventas confirmadas del periodo. "Devuelto" es lo acreditado por notas crédito y "Neto" lo que realmente queda.'],
@@ -13,6 +14,7 @@ const TABS = [
 const suma = (filas, campo) => filas.reduce((t, f) => t + Number(f[campo] ?? 0), 0);
 
 export default function Informes() {
+  const { t } = useTranslation();
   const [yo, setYo] = useState(null);
   const [sucursales, setSucursales] = useState([]);
   const [tab, setTab] = useState('ventas');
@@ -46,46 +48,46 @@ export default function Informes() {
   }, [tab, sucursal, desde, hasta, porDia, dias]);
 
   const nombre = Object.fromEntries(sucursales.map((s) => [s.id, s.nombre]));
-  const tabs = TABS.filter(([k]) => k !== 'cuadre' || yo?.rol === 'owner');
-  const explica = TABS.find(([k]) => k === tab)[2];
+  const tabs = TABS.filter(([k]) => k !== 'cuadre' || yo?.permisos?.includes('informes.cuadre'));
+  const explica = t('informes.expl.' + tab);
   const filas = Array.isArray(datos) ? datos : [];
 
   return (
     <>
-      <h2>Informes</h2>
+      <h2>{t('menu.informes')}</h2>
       <div className="segmentos">
-        {tabs.map(([k, texto]) => (
+        {tabs.map(([k]) => (
           <button key={k} type="button" className={`segmento ${tab === k ? 'activo' : ''}`}
-                  onClick={() => { setTab(k); setDatos(null); }}>{texto}</button>
+                  onClick={() => { setTab(k); setDatos(null); }}>{t('informes.tab.' + k)}</button>
         ))}
       </div>
       <p className="suave">{explica}</p>
 
       {tab !== 'cuadre' && (
         <div className="formulario">
-          <Campo etiqueta="Sucursal">
+          <Campo etiqueta={t('informes.sucursal')}>
             <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
-              <option value="">Todas las mías</option>
+              <option value="">{t('informes.todasMias')}</option>
               {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
           </Campo>
           {['ventas', 'margenes'].includes(tab) && (
             <>
-              <Campo etiqueta="Desde" ayuda="Primer día del periodo. Si dejas desde y hasta vacíos, se muestran los últimos 30 días.">
+              <Campo etiqueta={t('informes.desde')} ayuda={t('informes.ayudaDesde')}>
                 <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
               </Campo>
-              <Campo etiqueta="Hasta" ayuda="Último día del periodo (incluido).">
+              <Campo etiqueta={t('informes.hasta')} ayuda={t('informes.ayudaHasta')}>
                 <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
               </Campo>
             </>
           )}
           {tab === 'ventas' && (
             <label className="check">
-              <input type="checkbox" checked={porDia} onChange={(e) => setPorDia(e.target.checked)} /> Ver día por día
+              <input type="checkbox" checked={porDia} onChange={(e) => setPorDia(e.target.checked)} /> {t('informes.porDia')}
             </label>
           )}
           {tab === 'por-vencer' && (
-            <Campo etiqueta="Vencen en los próximos (días)" ayuda="Muestra los lotes que vencen dentro de este número de días, y también los que ya vencieron.">
+            <Campo etiqueta={t('informes.vencenEn')} ayuda={t('informes.ayudaVencenEn')}>
               <input type="number" min="0" max="365" value={dias} onChange={(e) => setDias(e.target.value)} />
             </Campo>
           )}
@@ -96,9 +98,9 @@ export default function Informes() {
       {tab === 'ventas' && (
         <div className="tabla-caja">
           <table>
-            <thead><tr><th>Sucursal</th>{porDia && <th>Día</th>}<th className="num">Ventas</th><th className="num">Subtotal</th>
-              <th className="num">Descuento</th><th className="num">IVA</th><th className="num">Total</th>
-              <th className="num">Devuelto</th><th className="num">Neto</th></tr></thead>
+            <thead><tr><th>{t('informes.thSucursal')}</th>{porDia && <th>{t('informes.thDia')}</th>}<th className="num">{t('informes.thVentas')}</th><th className="num">{t('informes.thSubtotal')}</th>
+              <th className="num">{t('informes.thDescuento')}</th><th className="num">{t('informes.thIva')}</th><th className="num">{t('comun.total')}</th>
+              <th className="num">{t('informes.thDevuelto')}</th><th className="num">{t('informes.thNeto')}</th></tr></thead>
             <tbody>
               {filas.map((f, i) => (
                 <tr key={i}><td>{nombre[f.sucursal_id] ?? f.sucursal_id}</td>{porDia && <td>{f.dia}</td>}
@@ -107,10 +109,10 @@ export default function Informes() {
                   <td className="num">{pesos(f.total)}</td><td className="num">{pesos(f.total_acreditado)}</td>
                   <td className="num">{pesos(f.neto)}</td></tr>
               ))}
-              {filas.length === 0 && <tr><td colSpan={porDia ? 9 : 8} className="vacio">Sin ventas en este periodo</td></tr>}
+              {filas.length === 0 && <tr><td colSpan={porDia ? 9 : 8} className="vacio">{t('informes.sinVentas')}</td></tr>}
             </tbody>
             {filas.length > 1 && (
-              <tfoot><tr><td colSpan={porDia ? 3 : 2} className="num"><strong>Totales</strong></td>
+              <tfoot><tr><td colSpan={porDia ? 3 : 2} className="num"><strong>{t('informes.totales')}</strong></td>
                 <td className="num" /><td className="num" /><td className="num" />
                 <td className="num"><strong>{pesos(suma(filas, 'total'))}</strong></td>
                 <td className="num">{pesos(suma(filas, 'total_acreditado'))}</td>
@@ -123,8 +125,8 @@ export default function Informes() {
       {tab === 'margenes' && (
         <div className="tabla-caja">
           <table>
-            <thead><tr><th>Producto</th><th>Sucursal</th><th className="num">Vendidas</th><th className="num">Devueltas</th>
-              <th className="num">Ingreso neto</th><th className="num">Costo</th><th className="num">Margen</th><th className="num">%</th></tr></thead>
+            <thead><tr><th>{t('informes.thProducto')}</th><th>{t('informes.thSucursal')}</th><th className="num">{t('informes.thVendidas')}</th><th className="num">{t('informes.thDevueltas')}</th>
+              <th className="num">{t('informes.thIngresoNeto')}</th><th className="num">{t('informes.thCosto')}</th><th className="num">{t('informes.thMargen')}</th><th className="num">%</th></tr></thead>
             <tbody>
               {filas.map((f, i) => (
                 <tr key={i}><td>{f.codigo} · {f.nombre}</td><td>{nombre[f.sucursal_id] ?? f.sucursal_id}</td>
@@ -133,7 +135,7 @@ export default function Informes() {
                   <td className="num"><strong>{pesos(f.margen)}</strong></td>
                   <td className="num">{Number(f.ingreso_neto) > 0 ? (Number(f.margen) / Number(f.ingreso_neto) * 100).toFixed(1) + '%' : '—'}</td></tr>
               ))}
-              {filas.length === 0 && <tr><td colSpan="8" className="vacio">Sin ventas en este periodo</td></tr>}
+              {filas.length === 0 && <tr><td colSpan="8" className="vacio">{t('informes.sinVentas')}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -142,8 +144,8 @@ export default function Informes() {
       {tab === 'stock-bajo' && (
         <div className="tabla-caja">
           <table>
-            <thead><tr><th>Sucursal</th><th>Producto</th><th className="num">Disponible</th><th className="num">Vencido</th>
-              <th className="num">Mínimo</th><th className="num">Faltan</th></tr></thead>
+            <thead><tr><th>{t('informes.thSucursal')}</th><th>{t('informes.thProducto')}</th><th className="num">{t('informes.thDisponible')}</th><th className="num">{t('informes.thVencido')}</th>
+              <th className="num">{t('informes.thMinimo')}</th><th className="num">{t('informes.thFaltan')}</th></tr></thead>
             <tbody>
               {filas.map((f, i) => (
                 <tr key={i}><td>{nombre[f.sucursal_id] ?? f.sucursal_id}</td><td>{f.codigo} · {f.nombre}</td>
@@ -152,7 +154,7 @@ export default function Informes() {
                   <td className="num">{num(f.stock_minimo)}</td>
                   <td className="num"><strong>{num(Math.max(0, Number(f.stock_minimo) - Number(f.cantidad_vendible)))}</strong></td></tr>
               ))}
-              {filas.length === 0 && <tr><td colSpan="6" className="vacio">Ningún producto con stock bajo ✔</td></tr>}
+              {filas.length === 0 && <tr><td colSpan="6" className="vacio">{t('informes.sinStockBajo')} ✔</td></tr>}
             </tbody>
           </table>
         </div>
@@ -161,20 +163,20 @@ export default function Informes() {
       {tab === 'por-vencer' && (
         <div className="tabla-caja">
           <table>
-            <thead><tr><th>Sucursal</th><th>Producto</th><th>Lote</th><th className="num">Cantidad</th><th>Caduca</th>
-              <th className="num">Días</th><th>Estado</th><th className="num">Valor en riesgo</th></tr></thead>
+            <thead><tr><th>{t('informes.thSucursal')}</th><th>{t('informes.thProducto')}</th><th>{t('informes.thLote')}</th><th className="num">{t('informes.thCantidad')}</th><th>{t('informes.thCaduca')}</th>
+              <th className="num">{t('informes.thDias')}</th><th>{t('comun.estado')}</th><th className="num">{t('informes.thValorRiesgo')}</th></tr></thead>
             <tbody>
               {filas.map((f) => (
                 <tr key={f.lote_id}><td>{nombre[f.sucursal_id] ?? f.sucursal_id}</td><td>{f.codigo} · {f.nombre}</td>
                   <td>{f.lote_id}</td><td className="num">{num(f.saldo)}</td><td>{f.fecha_caducidad}</td>
                   <td className="num">{f.dias_para_vencer}</td>
-                  <td><span className={`etiqueta ${f.vencido ? 'mala' : 'neutra'}`}>{f.vencido ? 'vencido' : 'por vencer'}</span></td>
+                  <td><span className={`etiqueta ${f.vencido ? 'mala' : 'neutra'}`}>{f.vencido ? t('informes.vencido') : t('informes.porVencer')}</span></td>
                   <td className="num">{pesos(f.valor_en_riesgo)}</td></tr>
               ))}
-              {filas.length === 0 && <tr><td colSpan="8" className="vacio">Nada por vencer en este plazo ✔</td></tr>}
+              {filas.length === 0 && <tr><td colSpan="8" className="vacio">{t('informes.nadaPorVencer')} ✔</td></tr>}
             </tbody>
             {filas.length > 0 && (
-              <tfoot><tr><td colSpan="7" className="num"><strong>Total en riesgo</strong></td>
+              <tfoot><tr><td colSpan="7" className="num"><strong>{t('informes.totalRiesgo')}</strong></td>
                 <td className="num"><strong>{pesos(suma(filas, 'valor_en_riesgo'))}</strong></td></tr></tfoot>
             )}
           </table>
@@ -183,10 +185,10 @@ export default function Informes() {
 
       {tab === 'cuadre' && datos && (
         datos.cuadra
-          ? <p className="guia ok">Todo cuadra: el saldo de cada lote coincide con su historial de movimientos.</p>
+          ? <p className="guia ok">{t('informes.todoCuadra')}</p>
           : (
             <>
-              <p className="guia aviso">Hay {datos.descuadres.length} lote(s) que no cuadran. Avísale al soporte técnico.</p>
+              <p className="guia aviso">{t('informes.hayDescuadres', { n: datos.descuadres.length })}</p>
               <div className="tabla-caja"><table>
                 <thead><tr>{Object.keys(datos.descuadres[0]).map((k) => <th key={k}>{k}</th>)}</tr></thead>
                 <tbody>{datos.descuadres.map((d, i) => <tr key={i}>{Object.values(d).map((v, j) => <td key={j}>{String(v)}</td>)}</tr>)}</tbody>

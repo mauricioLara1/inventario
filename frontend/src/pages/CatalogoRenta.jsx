@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { pesos } from '../formato';
 import Campo from '../Campo';
+import { useTranslation } from 'react-i18next';
 
 const ESTADO = { disponible: 'buena', rentada: 'neutra', mantenimiento: 'mala', retirada: 'neutra' };
 const P_VACIO = { categoria_renta_id: '', codigo: '', nombre: '', formato_cobro_id: '', precio: '',
-                  impuesto_porcentaje: '0', deposito: '', reposicion: '' };
+                  impuesto_porcentaje: '0', deposito: '', reposicion: '', piezas: '' };
 
 export default function CatalogoRenta() {
+  const { t } = useTranslation();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [categorias, setCategorias] = useState([]);
@@ -51,7 +53,7 @@ export default function CatalogoRenta() {
   const crearCategoria = (e) => {
     e.preventDefault();
     hacer(async () => { await api('POST', '/renta-catalogo/categorias', { nombre: catNueva.trim() }); setCatNueva(''); },
-      'Categoría creada');
+      t('catalogoRenta.categoriaCreada'));
   };
   const crearProducto = (e) => {
     e.preventDefault();
@@ -61,7 +63,17 @@ export default function CatalogoRenta() {
       impuesto_porcentaje: Number(prod.impuesto_porcentaje || 0) };
     if (prod.deposito) cuerpo.deposito = Number(prod.deposito);
     if (prod.reposicion) cuerpo.reposicion = Number(prod.reposicion);
-    hacer(async () => { await api('POST', '/renta-catalogo/productos', cuerpo); setProd(P_VACIO); }, 'Producto de renta creado');
+    const n = Math.max(0, Math.min(100, Number(prod.piezas || 0)));
+    const base = cuerpo.codigo;
+    hacer(async () => {
+      const creado = await api('POST', '/renta-catalogo/productos', cuerpo);
+      for (let i = 1; i <= n; i++) {
+        await api('POST', '/renta-catalogo/unidades', {
+          producto_renta_id: Number(creado.id), sucursal_id: Number(sucursal),
+          codigo: base + '-' + String(i).padStart(3, '0') });
+      }
+      setProd(P_VACIO);
+    }, n > 0 ? t('catalogoRenta.productoConPiezas', { n }) : t('catalogoRenta.productoCreado'));
   };
   const crearPieza = (e) => {
     e.preventDefault();
@@ -69,10 +81,10 @@ export default function CatalogoRenta() {
       await api('POST', '/renta-catalogo/unidades', {
         producto_renta_id: Number(pieza.producto_renta_id), sucursal_id: Number(sucursal), codigo: pieza.codigo.trim() });
       setPieza({ ...pieza, codigo: '' });
-    }, 'Pieza creada');
+    }, t('catalogoRenta.piezaCreada'));
   };
   const cambiarEstado = (u, estado) =>
-    hacer(() => api('PUT', `/renta-catalogo/unidades/${u.id}/estado`, { estado }), `Pieza ${u.codigo}: ${estado}`);
+    hacer(() => api('PUT', `/renta-catalogo/unidades/${u.id}/estado`, { estado }), t('catalogoRenta.piezaEstado', { codigo: u.codigo, estado: t('estadosPieza.' + estado, { defaultValue: estado }) }));
 
   const tp = buscarPieza.trim().toLowerCase();
   const unidadesVista = unidades
@@ -81,113 +93,113 @@ export default function CatalogoRenta() {
 
   return (
     <>
-      <h2>Catálogo de renta</h2>
+      <h2>{t('menu.catalogo-renta')}</h2>
       {error && <p className="error">{error}</p>}
       {aviso && <p className="aviso">{aviso}</p>}
 
-      <h3>Productos de renta</h3>
+      <h3>{t('catalogoRenta.productos')}</h3>
       <form className="formulario" onSubmit={crearCategoria}>
-        <input placeholder="Nueva categoría (ej. Escaleras)" value={catNueva} onChange={(e) => setCatNueva(e.target.value)} required />
-        <button className="secundario">Crear categoría</button>
+        <input placeholder={t('catalogoRenta.nuevaCategoria')} value={catNueva} onChange={(e) => setCatNueva(e.target.value)} required />
+        <button className="secundario">{t('catalogoRenta.crearCategoria')}</button>
       </form>
       <form className="formulario" onSubmit={crearProducto}>
-        <Campo etiqueta="Categoría" ayuda="Grupo al que pertenece (ej. Escaleras, Herramientas). Si no existe, créala en el formulario de arriba.">
+        <Campo etiqueta={t('catalogoRenta.categoria')} ayuda={t('catalogoRenta.ayudaCategoria')}>
           <select value={prod.categoria_renta_id} onChange={campo('categoria_renta_id')} required>
-            <option value="">Elegir…</option>
+            <option value="">{t('catalogoRenta.elegir')}</option>
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </Campo>
-        <Campo etiqueta="Código" ayuda="Identificador corto y único del producto (ej. TAL). Las piezas se numeran a partir de él: TAL-001, TAL-002…">
-          <input placeholder="Ej. TAL" value={prod.codigo} onChange={campo('codigo')} required />
+        <Campo etiqueta={t('catalogoRenta.codigo')} ayuda={t('catalogoRenta.ayudaCodigo')}>
+          <input placeholder={t('catalogoRenta.ejCodigo')} value={prod.codigo} onChange={campo('codigo')} required />
         </Campo>
-        <Campo etiqueta="Nombre">
-          <input placeholder="Ej. Taladro percutor" value={prod.nombre} onChange={campo('nombre')} required />
+        <Campo etiqueta={t('comun.nombre')}>
+          <input placeholder={t('catalogoRenta.ejNombre')} value={prod.nombre} onChange={campo('nombre')} required />
         </Campo>
-        <Campo etiqueta="Se cobra por" ayuda="Unidad de tiempo de la tarifa (hora, día…). La renta se cobra por periodos completos.">
+        <Campo etiqueta={t('catalogoRenta.seCobraPor')} ayuda={t('catalogoRenta.ayudaSeCobraPor')}>
           <select value={prod.formato_cobro_id} onChange={campo('formato_cobro_id')} required>
-            <option value="">Elegir…</option>
+            <option value="">{t('catalogoRenta.elegir')}</option>
             {formatos.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
           </select>
         </Campo>
-        <Campo etiqueta="Tarifa por periodo" ayuda="Lo que cuesta cada periodo (hora, día…) por pieza, sin IVA.">
-          <input type="number" min="0" step="any" placeholder="Ej. 20000" value={prod.precio} onChange={campo('precio')} required />
+        <Campo etiqueta={t('catalogoRenta.tarifaPeriodo')} ayuda={t('catalogoRenta.ayudaTarifa')}>
+          <input type="number" min="0" step="any" placeholder={t('catalogoRenta.ejTarifa')} value={prod.precio} onChange={campo('precio')} required />
         </Campo>
-        <Campo etiqueta="IVA %" ayuda="Porcentaje de impuesto que se suma a la tarifa. Pon 0 si no aplica.">
+        <Campo etiqueta={t('catalogoRenta.iva')} ayuda={t('catalogoRenta.ayudaIva')}>
           <input type="number" min="0" max="100" step="any" placeholder="0" value={prod.impuesto_porcentaje} onChange={campo('impuesto_porcentaje')} />
         </Campo>
-        <Campo etiqueta="Depósito" ayuda="Dinero de garantía que el cliente deja por cada pieza. Se le devuelve cuando regresa la pieza, o se descuenta de lo que deba.">
-          <input type="number" min="0" step="any" placeholder="Ej. 50000" value={prod.deposito} onChange={campo('deposito')} />
+        <Campo etiqueta={t('catalogoRenta.deposito')} ayuda={t('catalogoRenta.ayudaDeposito')}>
+          <input type="number" min="0" step="any" placeholder={t('catalogoRenta.ejDeposito')} value={prod.deposito} onChange={campo('deposito')} />
         </Campo>
-        <Campo etiqueta="Valor de reposición" ayuda="Lo que cuesta reponer una pieza si se pierde. Queda registrado como referencia.">
-          <input type="number" min="0" step="any" placeholder="Ej. 300000" value={prod.reposicion} onChange={campo('reposicion')} />
+        <Campo etiqueta={t('catalogoRenta.reposicion')} ayuda={t('catalogoRenta.ayudaReposicion')}>
+          <input type="number" min="0" step="any" placeholder={t('catalogoRenta.ejReposicion')} value={prod.reposicion} onChange={campo('reposicion')} />
         </Campo>
-        <Campo etiqueta="Piezas a crear" ayuda="Cuántas piezas físicas crear ahora en la sucursal elegida, con códigos automáticos (TAL-001, TAL-002…). Puedes dejarlo vacío y agregarlas después.">
-          <input type="number" min="0" max="100" step="1" placeholder="Ej. 3" value={prod.piezas} onChange={campo('piezas')} />
+        <Campo etiqueta={t('catalogoRenta.piezasCrear')} ayuda={t('catalogoRenta.ayudaPiezas')}>
+          <input type="number" min="0" max="100" step="1" placeholder={t('catalogoRenta.ejPiezas')} value={prod.piezas} onChange={campo('piezas')} />
         </Campo>
-        <button>Crear producto de renta</button>
+        <button>{t('catalogoRenta.crearProducto')}</button>
       </form>
       <div className="tabla-caja">
         <table>
-          <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th>Cobro</th>
-            <th className="num">Tarifa</th><th className="num">IVA</th><th className="num">Depósito</th><th className="num">Reposición</th></tr></thead>
+          <thead><tr><th>{t('catalogoRenta.thCodigo')}</th><th>{t('catalogoRenta.thProducto')}</th><th>{t('catalogoRenta.categoria')}</th><th>{t('catalogoRenta.thCobro')}</th>
+            <th className="num">{t('catalogoRenta.thTarifa')}</th><th className="num">{t('catalogoRenta.thIva')}</th><th className="num">{t('catalogoRenta.deposito')}</th><th className="num">{t('catalogoRenta.thReposicion')}</th></tr></thead>
           <tbody>
             {productos.map((p) => (
               <tr key={p.id}>
-                <td>{p.codigo}</td><td>{p.nombre}</td><td>{p.categoria}</td><td>por {p.formato}</td>
+                <td>{p.codigo}</td><td>{p.nombre}</td><td>{p.categoria}</td><td>{t('catalogoRenta.por')} {p.formato}</td>
                 <td className="num">{pesos(p.precio)}</td><td className="num">{Number(p.impuesto_porcentaje)}%</td>
                 <td className="num">{pesos(p.deposito)}</td><td className="num">{pesos(p.reposicion)}</td>
               </tr>
             ))}
-            {productos.length === 0 && <tr><td colSpan="8" className="vacio">Sin productos de renta</td></tr>}
+            {productos.length === 0 && <tr><td colSpan="8" className="vacio">{t('catalogoRenta.sinProductos')}</td></tr>}
           </tbody>
         </table>
       </div>
 
-      <h3>Piezas físicas</h3>
+      <h3>{t('catalogoRenta.piezasFisicas')}</h3>
       <div className="filtros">
         <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
           {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
         </select>
-        <input placeholder="Buscar pieza por código o nombre" value={buscarPieza}
+        <input placeholder={t('catalogoRenta.buscarPieza')} value={buscarPieza}
                onChange={(e) => setBuscarPieza(e.target.value)} />
         <select value={estadoPieza} onChange={(e) => setEstadoPieza(e.target.value)}>
-          <option value="">Todos los estados</option>
-          <option value="disponible">Disponibles</option>
-          <option value="rentada">Rentadas</option>
-          <option value="mantenimiento">En mantenimiento</option>
-          <option value="retirada">Retiradas</option>
+          <option value="">{t('comun.todosEstados')}</option>
+          <option value="disponible">{t('catalogoRenta.disponibles')}</option>
+          <option value="rentada">{t('catalogoRenta.rentadas')}</option>
+          <option value="mantenimiento">{t('catalogoRenta.enMantenimiento')}</option>
+          <option value="retirada">{t('catalogoRenta.retiradas')}</option>
         </select>
       </div>
-      <p className="suave">{unidadesVista.length} de {unidades.length} piezas</p>
+      <p className="suave">{t('catalogoRenta.nDePiezas', { n: unidadesVista.length, total: unidades.length })}</p>
       <form className="formulario" onSubmit={crearPieza}>
         <select value={pieza.producto_renta_id} onChange={(e) => setPieza({ ...pieza, producto_renta_id: e.target.value })} required>
-          <option value="">Producto…</option>
+          <option value="">{t('catalogoRenta.productoOpcion')}</option>
           {productos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre}</option>)}
         </select>
-        <input placeholder="Código de la pieza (ej. ESC-001)" value={pieza.codigo}
+        <input placeholder={t('catalogoRenta.codigoPieza')} value={pieza.codigo}
                onChange={(e) => setPieza({ ...pieza, codigo: e.target.value })} required />
-        <button>Agregar pieza</button>
+        <button>{t('catalogoRenta.agregarPieza')}</button>
       </form>
       <div className="tabla-caja">
         <table>
-          <thead><tr><th>Código</th><th>Producto</th><th>Estado</th><th>Cambiar a</th></tr></thead>
+          <thead><tr><th>{t('catalogoRenta.thCodigo')}</th><th>{t('catalogoRenta.thProducto')}</th><th>{t('comun.estado')}</th><th>{t('catalogoRenta.cambiarA')}</th></tr></thead>
           <tbody>
             {unidadesVista.map((u) => (
               <tr key={u.id}>
                 <td>{u.codigo}</td><td>{u.producto}</td>
-                <td><span className={`etiqueta ${ESTADO[u.estado] ?? 'neutra'}`}>{u.estado}</span></td>
+                <td><span className={`etiqueta ${ESTADO[u.estado] ?? 'neutra'}`}>{t('estadosPieza.' + u.estado, { defaultValue: u.estado })}</span></td>
                 <td>
-                  {u.estado === 'rentada' ? <span className="suave">Se libera al devolverla</span> : (
+                  {u.estado === 'rentada' ? <span className="suave">{t('catalogoRenta.seLibera')}</span> : (
                     <select value="" onChange={(e) => e.target.value && cambiarEstado(u, e.target.value)}>
-                      <option value="">Elegir…</option>
+                      <option value="">{t('catalogoRenta.elegir')}</option>
                       {['disponible', 'mantenimiento', 'retirada'].filter((x) => x !== u.estado)
-                        .map((x) => <option key={x} value={x}>{x}</option>)}
+                        .map((x) => <option key={x} value={x}>{t('estadosPieza.' + x)}</option>)}
                     </select>
                   )}
                 </td>
               </tr>
             ))}
-            {unidadesVista.length === 0 && <tr><td colSpan="4" className="vacio">{unidades.length === 0 ? 'Sin piezas en esta sucursal' : 'Ninguna pieza coincide con el filtro'}</td></tr>}
+            {unidadesVista.length === 0 && <tr><td colSpan="4" className="vacio">{unidades.length === 0 ? t('catalogoRenta.sinPiezas') : t('catalogoRenta.ningunaCoincide')}</td></tr>}
           </tbody>
         </table>
       </div>

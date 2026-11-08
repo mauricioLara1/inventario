@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { api } from '../api';
 import { pesos, fecha } from '../formato';
+import { useTranslation } from 'react-i18next';
 
 const CLASE = { borrador: 'neutra', recibida: 'buena', anulada: 'mala' };
 
 export default function Compras() {
   const navegar = useNavigate();
+  const { t } = useTranslation();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [proveedores, setProveedores] = useState([]);
@@ -48,26 +50,26 @@ export default function Compras() {
 
   return (
     <>
-      <h2>Compras</h2>
-      <p className="suave">¿Falta el proveedor? <Link to="/proveedores">Créalo aquí</Link></p>
+      <h2>{t('menu.compras')}</h2>
+      <p className="suave">{t('compras.faltaProveedor')} <Link to="/proveedores">{t('compras.crealoAqui')}</Link></p>
       <form className="formulario" onSubmit={crearCompra}>
         <select value={proveedor} onChange={(e) => setProveedor(e.target.value)} required>
-          <option value="">Proveedor…</option>
+          <option value="">{t('compras.proveedorOpcion')}</option>
           {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
-        <input placeholder="N.º factura del proveedor (opcional)" value={factura}
+        <input placeholder={t('compras.placeholderFactura')} value={factura}
                onChange={(e) => setFactura(e.target.value)} />
-        <button>Nueva compra</button>
+        <button>{t('compras.nueva')}</button>
       </form>
       <div className="filtros">
         <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
           {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
         </select>
         <select value={estado} onChange={(e) => setEstado(e.target.value)}>
-          <option value="">Todos los estados</option>
-          <option value="borrador">Borrador</option>
-          <option value="recibida">Recibida</option>
-          <option value="anulada">Anulada</option>
+          <option value="">{t('comun.todosEstados')}</option>
+          <option value="borrador">{t('estados.borrador')}</option>
+          <option value="recibida">{t('estados.recibida')}</option>
+          <option value="anulada">{t('estados.anulada')}</option>
         </select>
       </div>
       {error && <p className="error">{error}</p>}
@@ -75,18 +77,18 @@ export default function Compras() {
       <div className="tabla-caja">
         <table>
           <thead>
-            <tr><th>Número</th><th>Fecha</th><th>Proveedor</th><th>Factura</th><th>Estado</th><th className="num">Total</th></tr>
+            <tr><th>{t('comun.numero')}</th><th>{t('comun.fecha')}</th><th>{t('compras.proveedor')}</th><th>{t('compras.factura')}</th><th>{t('comun.estado')}</th><th className="num">{t('comun.total')}</th></tr>
           </thead>
           <tbody>
             {compras.map((c) => (
               <tr key={c.id}>
                 <td><Link to={`/compras/${c.id}`}>{c.numero}</Link></td><td>{fecha(c.fecha)}</td><td>{c.proveedor}</td>
                 <td>{c.numero_factura_proveedor ?? '—'}</td>
-                <td><span className={`etiqueta ${CLASE[c.estado] ?? 'neutra'}`}>{c.estado}</span></td>
+                <td><span className={`etiqueta ${CLASE[c.estado] ?? 'neutra'}`}>{t('estados.' + c.estado, { defaultValue: c.estado })}</span></td>
                 <td className="num">{pesos(c.total)}</td>
               </tr>
             ))}
-            {compras.length === 0 && <tr><td colSpan="6" className="vacio">Sin compras</td></tr>}
+            {compras.length === 0 && <tr><td colSpan="6" className="vacio">{t('compras.sinCompras')}</td></tr>}
           </tbody>
         </table>
       </div>

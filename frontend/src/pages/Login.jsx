@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, sesion } from '../api';
+import { useTranslation } from 'react-i18next';
 
 export default function Login() {
   const [usuario, setUsuario] = useState('');
@@ -8,6 +9,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const navegar = useNavigate();
+  const { t } = useTranslation();
 
   async function enviar(e) {
     e.preventDefault();
@@ -26,15 +28,15 @@ export default function Login() {
   return (
     <main className="centro">
       <form className="tarjeta" onSubmit={enviar}>
-        <h1>Inventario</h1>
-        <label>Usuario
+        <h1>{t('menu.inventario')}</h1>
+        <label>{t('login.usuario')}
           <input value={usuario} onChange={(e) => setUsuario(e.target.value)} autoFocus required />
         </label>
-        <label>Contraseña
+        <label>{t('login.clave')}
           <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} required />
         </label>
         {error && <p className="error">{error}</p>}
-        <button disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</button>
+        <button disabled={enviando}>{enviando ? t('login.entrando') : t('login.entrar')}</button>
       </form>
     </main>
   );

@@ -3,19 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { num, pesos, fechaHora } from '../formato';
 import Campo from '../Campo';
+import { useTranslation } from 'react-i18next';
 
 const CLASE = { abierta: 'neutra', cerrada: 'buena', cancelada: 'mala' };
 const CLASE_PIEZA = { pendiente: 'neutra', devuelta: 'buena', danada: 'mala', perdida: 'mala' };
-const TIPOS = {
-  cobro: { titulo: 'Cobrar al cliente', texto: 'El cliente paga dinero por lo que debe. Entra dinero a la caja.' },
-  aplicacion_deposito: { titulo: 'Usar el depósito para pagar', texto: 'No entra dinero nuevo: lo que debe el cliente se paga con el depósito que dejó.' },
-  devolucion_deposito: { titulo: 'Devolver depósito al cliente', texto: 'Se le entrega al cliente el depósito que sobra. Sale dinero de la caja.' },
-};
-const MOV = {
-  cobro: ['Cobro al cliente', 'Entra a caja'],
-  aplicacion_deposito: ['Depósito usado para pagar', 'Sin movimiento de caja'],
-  devolucion_deposito: ['Depósito devuelto al cliente', 'Sale de caja'],
-};
+const TIPOS = ['cobro', 'aplicacion_deposito', 'devolucion_deposito'];
 const PAGO = { tipo: 'cobro', metodo: 'efectivo', monto: '', referencia: '' };
 const CARGO = { renta_detalle_id: '', concepto_cargo_id: '', monto: '', descripcion: '' };
 const redondo = (x) => Number(Number(x).toFixed(2));
@@ -32,6 +24,7 @@ const Dato = ({ etiqueta, ayuda, valor, fuerte }) => (
 
 export default function RentaDetalle() {
   const { id } = useParams();
+  const { t } = useTranslation();
   const [r, setR] = useState(null);
   const [cliente, setCliente] = useState(null);
   const [conceptos, setConceptos] = useState([]);
@@ -59,31 +52,31 @@ export default function RentaDetalle() {
 
   const devolver = (l) => hacer(
     () => api('POST', `/rentas/${id}/devolver`, { renta_detalle_id: l.id, estado: estadoPieza[l.id] ?? 'devuelta' }),
-    `Pieza ${l.unidad} registrada`);
+    t('rentaDetalle.piezaRegistrada', { unidad: l.unidad }));
   const agregarCargo = (e) => {
     e.preventDefault();
     const cuerpo = { renta_detalle_id: Number(cargo.renta_detalle_id), concepto_cargo_id: Number(cargo.concepto_cargo_id),
                      monto: Number(cargo.monto) };
     if (cargo.descripcion.trim()) cuerpo.descripcion = cargo.descripcion.trim();
-    hacer(async () => { await api('POST', `/rentas/${id}/cargos`, cuerpo); setCargo(CARGO); }, 'Cargo agregado');
+    hacer(async () => { await api('POST', `/rentas/${id}/cargos`, cuerpo); setCargo(CARGO); }, t('rentaDetalle.cargoAgregado'));
   };
   const registrarPago = (e) => {
     e.preventDefault();
     const cuerpo = { tipo: pago.tipo, metodo: pago.tipo === 'aplicacion_deposito' ? 'otro' : pago.metodo, monto: Number(pago.monto) };
     if (pago.referencia.trim()) cuerpo.referencia = pago.referencia.trim();
     hacer(async () => { await api('POST', `/rentas/${id}/pagos`, cuerpo); setPago({ ...PAGO, tipo: pago.tipo }); },
-      `${TIPOS[pago.tipo].titulo}: registrado`);
+      t('rentaDetalle.registrado', { titulo: t('rentaDetalle.tipo.' + pago.tipo + '.titulo') }));
   };
   const cerrar = () => {
-    if (!window.confirm('¿Cerrar la renta? Ya no se podrá modificar.')) return;
-    hacer(() => api('POST', `/rentas/${id}/cerrar`), 'Renta cerrada');
+    if (!window.confirm(t('rentaDetalle.confirmCerrar'))) return;
+    hacer(() => api('POST', `/rentas/${id}/cerrar`), t('rentaDetalle.rentaCerrada'));
   };
   const cancelar = () => {
-    if (!window.confirm('¿Cancelar la renta? Solo se puede si no se ha devuelto ninguna pieza.')) return;
-    hacer(() => api('POST', `/rentas/${id}/cancelar`), 'Renta cancelada');
+    if (!window.confirm(t('rentaDetalle.confirmCancelar'))) return;
+    hacer(() => api('POST', `/rentas/${id}/cancelar`), t('rentaDetalle.rentaCancelada'));
   };
 
-  if (!r) return <>{error ? <p className="error">{error}</p> : <p className="suave">Cargando…</p>}</>;
+  if (!r) return <>{error ? <p className="error">{error}</p> : <p className="suave">{t('comun.cargando')}</p>}</>;
   const c = r.cuenta;
   const abierta = r.estado === 'abierta';
   const pendientes = r.lineas.filter((l) => l.estado_devolucion === 'pendiente');
@@ -93,15 +86,15 @@ export default function RentaDetalle() {
   let guia = null;
   if (abierta) {
     if (pendientes.length > 0) {
-      guia = ['info', `Faltan ${pendientes.length} pieza(s) por devolver. Registra cómo regresó cada una en la tabla de piezas.`];
+      guia = ['info', t('rentaDetalle.guiaPendientes', { n: pendientes.length })];
     } else if (saldo > 0) {
-      guia = ['aviso', `El cliente debe ${pesos(saldo)}. ` + (poder > 0
-        ? `Puedes usar su depósito (${pesos(poder)}) para pagarlo${saldo > poder ? ' y cobrar el resto.' : '.'}`
-        : 'Cóbraselo.')];
+      guia = ['aviso', t('rentaDetalle.guiaDebe', { valor: pesos(saldo) }) + ' ' + (poder > 0
+        ? t(saldo > poder ? 'rentaDetalle.guiaUsarDepositoResto' : 'rentaDetalle.guiaUsarDepositoTodo', { valor: pesos(poder) })
+        : t('rentaDetalle.guiaCobraselo'))];
     } else if (poder > 0) {
-      guia = ['aviso', `La cuenta está saldada. Falta devolverle al cliente su depósito: ${pesos(poder)}.`];
+      guia = ['aviso', t('rentaDetalle.guiaSaldada', { valor: pesos(poder) })];
     } else {
-      guia = ['ok', 'Todo está saldado y el depósito quedó en cero. Ya puedes cerrar la renta.'];
+      guia = ['ok', t('rentaDetalle.guiaListo')];
     }
   }
 
@@ -109,66 +102,66 @@ export default function RentaDetalle() {
   if (abierta && pendientes.length === 0) {
     if (saldo > 0 && poder > 0) {
       const m = redondo(Math.min(saldo, poder));
-      sugerencias.push({ texto: `Usar depósito: ${pesos(m)}`, tipo: 'aplicacion_deposito', monto: m });
+      sugerencias.push({ texto: t('rentaDetalle.sugUsar', { valor: pesos(m) }), tipo: 'aplicacion_deposito', monto: m });
     }
     if (saldo > poder) {
       const m = redondo(saldo - poder);
-      sugerencias.push({ texto: `Cobrar: ${pesos(m)}`, tipo: 'cobro', monto: m });
+      sugerencias.push({ texto: t('rentaDetalle.sugCobrar', { valor: pesos(m) }), tipo: 'cobro', monto: m });
     }
     if (saldo <= 0 && poder > 0) {
-      sugerencias.push({ texto: `Devolver depósito: ${pesos(poder)}`, tipo: 'devolucion_deposito', monto: redondo(poder) });
+      sugerencias.push({ texto: t('rentaDetalle.sugDevolver', { valor: pesos(poder) }), tipo: 'devolucion_deposito', monto: redondo(poder) });
     }
   }
   const maximo = Math.max(0, pago.tipo === 'cobro' ? saldo : pago.tipo === 'aplicacion_deposito' ? Math.min(saldo, poder) : poder);
   const requisitos = [
-    [pendientes.length === 0, 'Todas las piezas devueltas'],
-    [saldo <= 0, 'Sin saldo por cobrar'],
-    [poder <= 0, 'Depósito devuelto o usado (no queda nada en poder)'],
+    [pendientes.length === 0, t('rentaDetalle.reqPiezas')],
+    [saldo <= 0, t('rentaDetalle.reqSaldo')],
+    [poder <= 0, t('rentaDetalle.reqDeposito')],
   ];
 
   return (
     <>
-      <p><Link to="/rentas">← Rentas</Link></p>
-      <h2>Renta {r.numero} <span className={`etiqueta ${CLASE[r.estado]}`}>{r.estado}</span></h2>
+      <p><Link to="/rentas">← {t('menu.rentas')}</Link></p>
+      <h2>{t('menu.rentas')} {r.numero} <span className={`etiqueta ${CLASE[r.estado]}`}>{t('estados.' + r.estado, { defaultValue: r.estado })}</span></h2>
       <p className="suave">
-        {cliente ? `${cliente.nombre}${cliente.telefono ? ' · ' + cliente.telefono : ''}` : ''} · desde {fechaHora(r.fecha_inicio)} ·
-        devolución prevista {fechaHora(r.fecha_prevista_devolucion)}{r.fecha_cierre ? ` · cerrada ${fechaHora(r.fecha_cierre)}` : ''}
+        {cliente ? `${cliente.nombre}${cliente.telefono ? ' · ' + cliente.telefono : ''}` : ''} · {t('rentaDetalle.desde')} {fechaHora(r.fecha_inicio)} ·
+        {t('rentaDetalle.devolucionPrevista')} {fechaHora(r.fecha_prevista_devolucion)}{r.fecha_cierre ? ' · ' + t('rentaDetalle.cerrada') + ' ' + fechaHora(r.fecha_cierre) : ''}
       </p>
       {error && <p className="error">{error}</p>}
       {aviso && <p className="aviso">{aviso}</p>}
       {guia && <p className={`guia ${guia[0]}`}>{guia[1]}</p>}
 
-      <h3>Cuenta</h3>
+      <h3>{t('rentaDetalle.cuenta')}</h3>
       <div className="resumen">
-        <Dato etiqueta="Piezas (tiempo rentado)" ayuda="Lo que suman las piezas ya devueltas, según los periodos usados y su tarifa." valor={pesos(c.total_piezas)} />
-        <Dato etiqueta="Cargos extra" ayuda="Cobros adicionales por daños, retrasos, limpieza, etc." valor={pesos(c.total_cargos)} />
-        <Dato etiqueta="Total a pagar" ayuda="Piezas más cargos extra." valor={pesos(c.consumo)} fuerte />
-        <Dato etiqueta="Pagado en dinero" ayuda="Lo que el cliente ha pagado directamente (efectivo, transferencia, tarjeta…)." valor={pesos(c.cobrado)} />
-        <Dato etiqueta="Pagado con depósito" ayuda="Parte de la cuenta que se pagó usando el depósito que el cliente dejó." valor={pesos(c.deposito_aplicado)} />
-        <Dato etiqueta="Saldo por cobrar" ayuda="Lo que el cliente todavía debe. Debe quedar en 0 para cerrar." valor={pesos(c.saldo)} fuerte />
+        <Dato etiqueta={t('rentaDetalle.d.piezas')} ayuda={t('rentaDetalle.d.piezasAyuda')} valor={pesos(c.total_piezas)} />
+        <Dato etiqueta={t('rentaDetalle.d.cargos')} ayuda={t('rentaDetalle.d.cargosAyuda')} valor={pesos(c.total_cargos)} />
+        <Dato etiqueta={t('rentaDetalle.d.total')} ayuda={t('rentaDetalle.d.totalAyuda')} valor={pesos(c.consumo)} fuerte />
+        <Dato etiqueta={t('rentaDetalle.d.pagadoDinero')} ayuda={t('rentaDetalle.d.pagadoDineroAyuda')} valor={pesos(c.cobrado)} />
+        <Dato etiqueta={t('rentaDetalle.d.pagadoDeposito')} ayuda={t('rentaDetalle.d.pagadoDepositoAyuda')} valor={pesos(c.deposito_aplicado)} />
+        <Dato etiqueta={t('rentaDetalle.d.saldo')} ayuda={t('rentaDetalle.d.saldoAyuda')} valor={pesos(c.saldo)} fuerte />
       </div>
 
-      <h3>Depósito</h3>
+      <h3>{t('rentaDetalle.deposito')}</h3>
       <div className="resumen">
-        <Dato etiqueta="Recibido" ayuda="Depósito que el cliente dejó al abrir la renta." valor={pesos(c.deposito_cobrado)} />
-        <Dato etiqueta="Usado para pagar" ayuda="Parte del depósito que se descontó de lo que debía." valor={pesos(c.deposito_aplicado)} />
-        <Dato etiqueta="Devuelto al cliente" ayuda="Depósito que ya se le entregó de vuelta." valor={pesos(c.deposito_devuelto)} />
-        <Dato etiqueta="Aún en tu poder" ayuda="Depósito que todavía tienes y debes devolver o usar para pagar. Debe quedar en 0 para cerrar." valor={pesos(c.deposito_en_poder)} fuerte />
+        <Dato etiqueta={t('rentaDetalle.d.recibido')} ayuda={t('rentaDetalle.d.recibidoAyuda')} valor={pesos(c.deposito_cobrado)} />
+        <Dato etiqueta={t('rentaDetalle.d.usado')} ayuda={t('rentaDetalle.d.usadoAyuda')} valor={pesos(c.deposito_aplicado)} />
+        <Dato etiqueta={t('rentaDetalle.d.devuelto')} ayuda={t('rentaDetalle.d.devueltoAyuda')} valor={pesos(c.deposito_devuelto)} />
+        <Dato etiqueta={t('rentaDetalle.d.enPoder')} ayuda={t('rentaDetalle.d.enPoderAyuda')} valor={pesos(c.deposito_en_poder)} fuerte />
       </div>
 
-      <h3>Piezas</h3>
-      {abierta && <p className="suave">Registra cómo regresó cada pieza: en buen estado vuelve a estar disponible; dañada pasa a mantenimiento; perdida se retira.</p>}
+      <h3>{t('rentaDetalle.piezas')}</h3>
+      {abierta && <p className="suave">{t('rentaDetalle.notaPiezas')}</p>}
       <div className="tabla-caja">
         <table>
           <thead>
-            <tr><th>Pieza</th><th>Producto</th><th className="num">Tarifa</th><th>Estado</th>
-                <th className="num">Periodos</th><th className="num">Total</th>{abierta && <th>Registrar devolución</th>}</tr>
+            <tr><th>{t('rentaDetalle.thPieza')}</th><th>{t('rentaDetalle.thProducto')}</th><th className="num">{t('rentaDetalle.thTarifa')}</th><th>{t('comun.estado')}</th>
+                <th className="num">{t('rentaDetalle.thPeriodos')}</th><th className="num">{t('comun.total')}</th>{abierta && <th>{t('rentaDetalle.thRegistrarDev')}</th>}</tr>
           </thead>
           <tbody>
             {r.lineas.map((l) => (
               <tr key={l.id}>
                 <td>{l.unidad}</td><td>{l.producto}</td><td className="num">{pesos(l.tarifa_aplicada)}</td>
-                <td><span className={`etiqueta ${CLASE_PIEZA[l.estado_devolucion]}`}>{l.estado_devolucion}</span></td>
+                <td><span className={`etiqueta ${CLASE_PIEZA[l.estado_devolucion]}`}>{t('rentaDetalle.estadoDevolucion.' + l.estado_devolucion, { defaultValue: l.estado_devolucion })}</span></td>
                 <td className="num">{l.periodos_cobrados === null ? '—' : num(l.periodos_cobrados)}</td>
                 <td className="num">{l.estado_devolucion === 'pendiente' ? '—' : pesos(l.total)}</td>
                 {abierta && (
@@ -177,11 +170,11 @@ export default function RentaDetalle() {
                       <span className="fila-acciones">
                         <select value={estadoPieza[l.id] ?? 'devuelta'}
                                 onChange={(e) => setEstadoPieza({ ...estadoPieza, [l.id]: e.target.value })}>
-                          <option value="devuelta">Devuelta en buen estado</option>
-                          <option value="danada">Dañada</option>
-                          <option value="perdida">Perdida</option>
+                          <option value="devuelta">{t('rentaDetalle.opDevuelta')}</option>
+                          <option value="danada">{t('rentaDetalle.opDanada')}</option>
+                          <option value="perdida">{t('rentaDetalle.opPerdida')}</option>
                         </select>
-                        <button className="secundario" onClick={() => devolver(l)}>Registrar</button>
+                        <button className="secundario" onClick={() => devolver(l)}>{t('rentaDetalle.registrar')}</button>
                       </span>
                     )}
                   </td>
@@ -192,12 +185,12 @@ export default function RentaDetalle() {
         </table>
       </div>
 
-      <h3>Cargos extra</h3>
-      <p className="suave">Cobros adicionales por daños, retrasos, limpieza… Se suman al total a pagar.</p>
+      <h3>{t('rentaDetalle.cargosExtra')}</h3>
+      <p className="suave">{t('rentaDetalle.notaCargos')}</p>
       {r.cargos.length > 0 && (
         <div className="tabla-caja">
           <table>
-            <thead><tr><th>Motivo</th><th>Pieza</th><th>Detalle</th><th className="num">Monto</th></tr></thead>
+            <thead><tr><th>{t('rentaDetalle.thMotivo')}</th><th>{t('rentaDetalle.thPieza')}</th><th>{t('rentaDetalle.thDetalle')}</th><th className="num">{t('rentaDetalle.thMonto')}</th></tr></thead>
             <tbody>
               {r.cargos.map((k) => (
                 <tr key={k.id}><td>{k.concepto}</td>
@@ -210,93 +203,93 @@ export default function RentaDetalle() {
       )}
       {abierta && (
         <form className="formulario" onSubmit={agregarCargo}>
-          <Campo etiqueta="Pieza" ayuda="La pieza a la que corresponde el cargo.">
+          <Campo etiqueta={t('rentaDetalle.thPieza')} ayuda={t('rentaDetalle.ayudaPieza')}>
             <select value={cargo.renta_detalle_id} onChange={(e) => setCargo({ ...cargo, renta_detalle_id: e.target.value })} required>
-              <option value="">Elegir…</option>
+              <option value="">{t('catalogoRenta.elegir')}</option>
               {r.lineas.map((l) => <option key={l.id} value={l.id}>{l.unidad} · {l.producto}</option>)}
             </select>
           </Campo>
-          <Campo etiqueta="Motivo del cargo" ayuda="Tipo de cargo: daño, retraso, limpieza… Se administran en el catálogo de renta.">
+          <Campo etiqueta={t('rentaDetalle.campoMotivoCargo')} ayuda={t('rentaDetalle.ayudaMotivoCargo')}>
             <select value={cargo.concepto_cargo_id} onChange={(e) => setCargo({ ...cargo, concepto_cargo_id: e.target.value })} required>
-              <option value="">Elegir…</option>
+              <option value="">{t('catalogoRenta.elegir')}</option>
               {conceptos.map((k) => <option key={k.id} value={k.id}>{k.nombre}</option>)}
             </select>
           </Campo>
-          <Campo etiqueta="Monto" ayuda="Valor extra que se suma al total a pagar, además del tiempo rentado.">
-            <input type="number" min="0" step="0.01" placeholder="Ej. 15000" value={cargo.monto}
+          <Campo etiqueta={t('rentaDetalle.thMonto')} ayuda={t('rentaDetalle.ayudaMontoCargo')}>
+            <input type="number" min="0" step="0.01" placeholder={t('rentaDetalle.ejMonto')} value={cargo.monto}
                    onChange={(e) => setCargo({ ...cargo, monto: e.target.value })} required />
           </Campo>
-          <Campo etiqueta="Detalle (opcional)">
-            <input placeholder="Ej. Mango roto" value={cargo.descripcion}
+          <Campo etiqueta={t('rentaDetalle.campoDetalle')}>
+            <input placeholder={t('rentaDetalle.ejDetalle')} value={cargo.descripcion}
                    onChange={(e) => setCargo({ ...cargo, descripcion: e.target.value })} />
           </Campo>
-          <button className="secundario">Agregar cargo</button>
+          <button className="secundario">{t('rentaDetalle.agregarCargo')}</button>
         </form>
       )}
 
-      <h3>Movimientos de dinero</h3>
+      <h3>{t('rentaDetalle.movimientos')}</h3>
       {r.pagos.length > 0 ? (
         <div className="tabla-caja">
           <table>
-            <thead><tr><th>Fecha</th><th>Qué pasó</th><th>Caja</th><th>Método</th><th>Referencia</th><th className="num">Monto</th></tr></thead>
+            <thead><tr><th>{t('comun.fecha')}</th><th>{t('rentaDetalle.thQuePaso')}</th><th>{t('rentaDetalle.thCaja')}</th><th>{t('ventaDetalle.thMetodo')}</th><th>{t('ventaDetalle.thReferencia')}</th><th className="num">{t('rentaDetalle.thMonto')}</th></tr></thead>
             <tbody>
               {r.pagos.map((p) => (
-                <tr key={p.id}><td>{fechaHora(p.fecha)}</td><td>{MOV[p.tipo]?.[0] ?? p.tipo}</td>
-                    <td><span className="suave">{MOV[p.tipo]?.[1] ?? ''}</span></td>
-                    <td>{p.tipo === 'aplicacion_deposito' ? '—' : p.metodo}</td>
+                <tr key={p.id}><td>{fechaHora(p.fecha)}</td><td>{t('rentaDetalle.mov.' + p.tipo + '.quien', { defaultValue: p.tipo })}</td>
+                    <td><span className="suave">{t('rentaDetalle.mov.' + p.tipo + '.caja', { defaultValue: '' })}</span></td>
+                    <td>{p.tipo === 'aplicacion_deposito' ? '—' : t('metodos.' + p.metodo, { defaultValue: p.metodo })}</td>
                     <td>{p.referencia ?? '—'}</td><td className="num">{pesos(p.monto)}</td></tr>
               ))}
             </tbody>
           </table>
         </div>
-      ) : <p className="suave">Todavía no hay movimientos.</p>}
+      ) : <p className="suave">{t('rentaDetalle.sinMovimientos')}</p>}
 
       {abierta && (
         <>
-          <h3>Registrar un movimiento</h3>
+          <h3>{t('rentaDetalle.registrarMov')}</h3>
           <div className="segmentos">
-            {Object.entries(TIPOS).map(([k, v]) => (
+            {TIPOS.map((k) => (
               <button type="button" key={k} className={`segmento ${pago.tipo === k ? 'activo' : ''}`}
-                      onClick={() => setPago({ ...pago, tipo: k })}>{v.titulo}</button>
+                      onClick={() => setPago({ ...pago, tipo: k })}>{t('rentaDetalle.tipo.' + k + '.titulo')}</button>
             ))}
           </div>
-          <p className="suave">{TIPOS[pago.tipo].texto}</p>
+          <p className="suave">{t('rentaDetalle.tipo.' + pago.tipo + '.texto')}</p>
           {sugerencias.length > 0 && (
-            <p className="suave">Sugerido: {sugerencias.map((s) => (
+            <p className="suave">{t('rentaDetalle.sugerido')}: {sugerencias.map((s) => (
               <button key={s.texto} type="button" className="secundario"
                       onClick={() => setPago({ ...pago, tipo: s.tipo, monto: String(s.monto) })}>{s.texto}</button>
             ))}</p>
           )}
           <form className="formulario" onSubmit={registrarPago}>
             {pago.tipo !== 'aplicacion_deposito' && (
-              <Campo etiqueta="Método" ayuda="Cómo se recibe o se entrega el dinero.">
+              <Campo etiqueta={t('ventaDetalle.thMetodo')} ayuda={t('rentaDetalle.ayudaMetodo')}>
                 <select value={pago.metodo} onChange={(e) => setPago({ ...pago, metodo: e.target.value })}>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="tarjeta">Tarjeta</option>
-                  <option value="otro">Otro</option>
+                  <option value="efectivo">{t('metodos.efectivo')}</option>
+                  <option value="transferencia">{t('metodos.transferencia')}</option>
+                  <option value="tarjeta">{t('metodos.tarjeta')}</option>
+                  <option value="otro">{t('metodos.otro')}</option>
                 </select>
               </Campo>
             )}
-            <Campo etiqueta="Monto" ayuda="Valor de este movimiento. No puede superar el máximo que se muestra.">
-              <input type="number" min="0" step="0.01" placeholder={`Hasta ${pesos(maximo)}`} value={pago.monto}
+            <Campo etiqueta={t('rentaDetalle.thMonto')} ayuda={t('rentaDetalle.ayudaMontoMov')}>
+              <input type="number" min="0" step="0.01" placeholder={t('rentaDetalle.hasta', { valor: pesos(maximo) })} value={pago.monto}
                      onChange={(e) => setPago({ ...pago, monto: e.target.value })} required />
             </Campo>
-            <Campo etiqueta="Referencia (opcional)" ayuda="Número de transferencia, voucher o nota para identificar el movimiento.">
-              <input placeholder="Ej. 123456" value={pago.referencia}
+            <Campo etiqueta={t('ventaDetalle.referenciaPh')} ayuda={t('rentaDetalle.ayudaReferencia')}>
+              <input placeholder={t('rentaDetalle.ejReferencia')} value={pago.referencia}
                      onChange={(e) => setPago({ ...pago, referencia: e.target.value })} />
             </Campo>
-            <button>{TIPOS[pago.tipo].titulo}</button>
+            <button>{t('rentaDetalle.tipo.' + pago.tipo + '.titulo')}</button>
           </form>
 
-          <h3>Cerrar la renta</h3>
+          <h3>{t('rentaDetalle.cerrarRenta')}</h3>
           <ul className="chequeo">
             {requisitos.map(([ok, texto]) => <li key={texto} className={ok ? 'cumple' : 'falta'}>{ok ? '✔' : '✗'} {texto}</li>)}
           </ul>
           <div className="acciones">
-            <button onClick={cerrar} disabled={!requisitos.every(([ok]) => ok)}>Cerrar renta</button>
-            <button className="secundario" onClick={cancelar}>Cancelar renta</button>
-            <span className="suave">Cancelar solo es posible si no se ha devuelto ninguna pieza.</span>
+            <button onClick={cerrar} disabled={!requisitos.every(([ok]) => ok)}>{t('rentaDetalle.cerrarBtn')}</button>
+            <button className="secundario" onClick={cancelar}>{t('rentaDetalle.cancelarBtn')}</button>
+            <span className="suave">{t('rentaDetalle.cancelarNota')}</span>
           </div>
         </>
       )}

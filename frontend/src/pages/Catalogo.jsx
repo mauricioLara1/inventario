@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
+import { useTranslation } from 'react-i18next';
 
 const VACIO = { categoria_producto_id: '', codigo: '', nombre: '', medida: '', impuesto_porcentaje: '0',
                 precio_venta: '', stock_minimo: '' };
 
 export default function Catalogo() {
+  const { t } = useTranslation();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [categorias, setCategorias] = useState([]);
@@ -46,7 +48,7 @@ export default function Catalogo() {
     if (form.medida.trim()) cuerpo.medida = form.medida.trim();
     const conPrecio = form.precio_venta !== '';
     if (form.stock_minimo !== '' && !conPrecio) {
-      setError('Para fijar el stock mínimo indica también el precio de venta'); return;
+      setError(t('catalogo.minimoSinPrecio')); return;
     }
     try {
       const p = await api('POST', '/catalogo/productos', cuerpo);
@@ -56,8 +58,8 @@ export default function Catalogo() {
         await api('PUT', '/catalogo/productos/' + p.id + '/sucursales/' + sucursal, sc);
       }
       setForm(VACIO);
-      setAviso(conPrecio ? 'Producto creado y habilitado en esta sucursal'
-        : 'Producto creado. Falta ponerle precio para poder comprarlo y venderlo.');
+      setAviso(conPrecio ? t('catalogo.creadoHabilitado')
+        : t('catalogo.creadoSinPrecio'));
       cargar();
     } catch (err) { setError(err.message); }
   }
@@ -67,7 +69,7 @@ export default function Catalogo() {
     if (texto === '' || Number.isNaN(valor) || valor < 0 || String(valor) === String(p.precio_venta)) return;
     try {
       await api('PUT', `/catalogo/productos/${p.id}/sucursales/${sucursal}`, { precio_venta: valor });
-      setAviso(`Precio de ${p.nombre} guardado`); setError('');
+      setAviso(t('catalogo.precioGuardado', { nombre: p.nombre })); setError('');
       cargar();
     } catch (err) { setError(err.message); }
   }
@@ -79,14 +81,14 @@ export default function Catalogo() {
     if (catNueva.maneja_caducidad) cuerpo.maneja_caducidad = true;
     try {
       await api('POST', '/catalogo/categorias', cuerpo);
-      setCatNueva({ nombre: '', maneja_caducidad: false }); setAviso('Categoría creada'); cargar();
+      setCatNueva({ nombre: '', maneja_caducidad: false }); setAviso(t('catalogo.categoriaCreada')); cargar();
     } catch (err) { setError(err.message); }
   }
 
   async function desactivarCategoria(c) {
-    if (!window.confirm('¿Desactivar la categoría ' + c.nombre + '? Dejará de ofrecerse al crear productos.')) return;
+    if (!window.confirm(t('catalogo.confirmCat', { nombre: c.nombre }))) return;
     setError(''); setAviso('');
-    try { await api('PUT', '/catalogo/categorias/' + c.id + '/activo', { activo: false }); setAviso('Categoría desactivada'); cargar(); }
+    try { await api('PUT', '/catalogo/categorias/' + c.id + '/activo', { activo: false }); setAviso(t('catalogo.categoriaDesactivada')); cargar(); }
     catch (err) { setError(err.message); }
   }
 
@@ -96,7 +98,7 @@ export default function Catalogo() {
     try {
       await api('PUT', '/catalogo/productos/' + p.id + '/sucursales/' + sucursal,
         { precio_venta: Number(p.precio_venta), stock_minimo: valor });
-      setAviso('Stock mínimo de ' + p.nombre + ' guardado'); setError('');
+      setAviso(t('catalogo.minimoGuardado', { nombre: p.nombre })); setError('');
       cargar();
     } catch (err) { setError(err.message); }
   }
@@ -105,53 +107,53 @@ export default function Catalogo() {
 
   return (
     <>
-      <h2>Catálogo</h2>
+      <h2>{t('menu.catalogo')}</h2>
       <form className="formulario" onSubmit={crearCategoria}>
-        <input placeholder="Nueva categoría (ej. Aseo, Herramientas)" value={catNueva.nombre}
+        <input placeholder={t('catalogo.nuevaCategoria')} value={catNueva.nombre}
                onChange={(e) => setCatNueva({ ...catNueva, nombre: e.target.value })} required />
         <label className="check">
           <input type="checkbox" checked={catNueva.maneja_caducidad}
-                 onChange={(e) => setCatNueva({ ...catNueva, maneja_caducidad: e.target.checked })} /> Maneja caducidad
+                 onChange={(e) => setCatNueva({ ...catNueva, maneja_caducidad: e.target.checked })} /> {t('catalogo.manejaCaducidad')}
         </label>
-        <button className="secundario">Crear categoría</button>
+        <button className="secundario">{t('catalogo.crearCategoria')}</button>
         <div className="chips ancho">
           {categorias.map((c) => (
             <span key={c.id} className="etiqueta neutra">
-              {c.nombre}{c.maneja_caducidad ? ' · caduca' : ''}
-              <button type="button" className="x" title="Desactivar" onClick={() => desactivarCategoria(c)}>×</button>
+              {c.nombre}{c.maneja_caducidad ? ' · ' + t('catalogo.caduca') : ''}
+              <button type="button" className="x" title={t('comun.desactivar')} onClick={() => desactivarCategoria(c)}>×</button>
             </span>
           ))}
         </div>
       </form>
       <form className="formulario" onSubmit={crear}>
         <select value={form.categoria_producto_id} onChange={campo('categoria_producto_id')} required>
-          <option value="">Categoría…</option>
+          <option value="">{t('catalogo.categoriaOpcion')}</option>
           {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
-        <input placeholder="Código" value={form.codigo} onChange={campo('codigo')} required />
-        <input placeholder="Nombre" value={form.nombre} onChange={campo('nombre')} required />
-        <input placeholder="Medida (ej. botella)" value={form.medida} onChange={campo('medida')} />
-        <input type="number" min="0" max="100" step="any" title="IVA %" placeholder="IVA %"
+        <input placeholder={t('catalogo.codigo')} value={form.codigo} onChange={campo('codigo')} required />
+        <input placeholder={t('comun.nombre')} value={form.nombre} onChange={campo('nombre')} required />
+        <input placeholder={t('catalogo.medida')} value={form.medida} onChange={campo('medida')} />
+        <input type="number" min="0" max="100" step="any" title={t('catalogo.iva')} placeholder={t('catalogo.iva')}
                value={form.impuesto_porcentaje} onChange={campo('impuesto_porcentaje')} />
-        <input type="number" min="0" step="any" placeholder="Precio de venta (sucursal elegida)"
+        <input type="number" min="0" step="any" placeholder={t('catalogo.precioVenta')}
                value={form.precio_venta} onChange={campo('precio_venta')} />
-        <input type="number" min="0" step="any" placeholder="Stock mínimo"
+        <input type="number" min="0" step="any" placeholder={t('catalogo.stockMinimo')}
                value={form.stock_minimo} onChange={campo('stock_minimo')} />
-        <button>Crear producto</button>
+        <button>{t('catalogo.crearProducto')}</button>
       </form>
       <div className="filtros">
         <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
           {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
         </select>
-        <input placeholder="Buscar por nombre o código" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder={t('catalogo.buscar')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {error && <p className="error">{error}</p>}
       {aviso && <p className="aviso">{aviso}</p>}
       <div className="tabla-caja">
         <table>
           <thead>
-            <tr><th>Código</th><th>Producto</th><th>Categoría</th><th className="num">IVA</th>
-                <th className="num">Precio en esta sucursal</th><th className="num">Stock mínimo</th></tr>
+            <tr><th>{t('catalogo.codigo')}</th><th>{t('catalogo.producto')}</th><th>{t('catalogo.categoria')}</th><th className="num">{t('catalogo.ivaCol')}</th>
+                <th className="num">{t('catalogo.precioSucursal')}</th><th className="num">{t('catalogo.stockMinimo')}</th></tr>
           </thead>
           <tbody>
             {productos.map((p) => (
@@ -161,14 +163,14 @@ export default function Catalogo() {
                 <td>{nombreCat[p.categoria_producto_id] ?? ''}</td>
                 <td className="num">{Number(p.impuesto_porcentaje)}%</td>
                 <td className="num">
-                  <input className="precio" type="number" min="0" step="any" placeholder="Sin precio"
+                  <input className="precio" type="number" min="0" step="any" placeholder={t('catalogo.sinPrecio')}
                          key={`${p.id}-${p.precio_venta}`} defaultValue={p.precio_venta ?? ''}
                          onBlur={(e) => guardarPrecio(p, e.target.value)}
                          onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} />
                 </td>
                 <td className="num">
                   <input className="precio" type="number" min="0" step="any"
-                         placeholder={p.precio_venta === null ? 'Primero el precio' : '0'}
+                         placeholder={p.precio_venta === null ? t('catalogo.primeroPrecio') : '0'}
                          disabled={p.precio_venta === null}
                          key={p.id + '-min-' + p.stock_minimo} defaultValue={p.stock_minimo ?? ''}
                          onBlur={(e) => guardarMinimo(p, e.target.value)}
@@ -176,7 +178,7 @@ export default function Catalogo() {
                 </td>
               </tr>
             ))}
-            {productos.length === 0 && <tr><td colSpan="6" className="vacio">Sin productos</td></tr>}
+            {productos.length === 0 && <tr><td colSpan="6" className="vacio">{t('catalogo.sinProductos')}</td></tr>}
           </tbody>
         </table>
       </div>
