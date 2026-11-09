@@ -122,3 +122,12 @@ button.segmento.activo { background: var(--acento); color: #fff; border-color: v
 
 /* buscador con etiqueta */
 .campo-f:has(> .buscador), .campo-f:has(> .buscador-sel) { flex: 1; min-width: 260px; }
+
+/* etiqueta ambar: por vencer */
+.etiqueta.alerta { background: rgba(245, 158, 11, .2); color: #b45309; }
+
+/* inventario: lotes desplegables */
+.fila-click { cursor: pointer; }
+.fila-click:hover { background: rgba(31, 111, 235, .07); }
+.lotes-panel { padding: 8px 4px 12px; display: flex; flex-direction: column; gap: 10px; }
+.lotes-panel table { width: 100%; }

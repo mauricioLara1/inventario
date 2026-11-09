@@ -35,20 +35,39 @@ router.get('/stock', async (req, res, next) => {
     if (sucursalId === null) return;
     const q = typeof req.query.q === 'string' ? `%${req.query.q.trim()}%` : '%';
     const soloBajo = req.query.bajo === 'true';
+    const estado = req.query.estado === undefined ? null : req.query.estado;
+    if (estado !== null && !['vencido', 'por_vencer', 'bajo'].includes(estado)) {
+      return res.status(400).json({ error: 'estado invalido' });
+    }
+    const categoriaId = req.query.categoria_id === undefined ? null : Number(req.query.categoria_id);
+    if (categoriaId !== null && (!Number.isInteger(categoriaId) || categoriaId < 1)) {
+      return res.status(400).json({ error: 'categoria_id invalido' });
+    }
     const r = await pool.query(
-      `SELECT s.producto_id, p.codigo, p.nombre, p.medida, s.cantidad, s.cantidad_vencida,
-              s.cantidad_vendible, s.stock_minimo, s.stock_bajo,
-              v.proximo_vencimiento, v.dias_para_vencer
-         FROM v_stock s JOIN producto p ON p.id = s.producto_id
-         LEFT JOIN LATERAL (
-           SELECT min(l.fecha_caducidad) AS proximo_vencimiento, min(l.dias_para_vencer) AS dias_para_vencer
-             FROM v_lote_detalle l
-            WHERE l.sucursal_id = s.sucursal_id AND l.producto_id = s.producto_id
-              AND l.saldo > 0 AND l.fecha_caducidad IS NOT NULL) v ON true
-        WHERE s.sucursal_id = $1
-          AND (p.nombre ILIKE $2 OR p.codigo ILIKE $2)
-          AND (NOT $3 OR s.stock_bajo)
-        ORDER BY p.nombre`, [sucursalId, q, soloBajo]);
+      `SELECT * FROM (
+         SELECT s.producto_id, p.codigo, p.nombre, p.medida, p.categoria_producto_id,
+                s.cantidad, s.cantidad_vencida, s.cantidad_vendible, s.stock_minimo, s.stock_bajo,
+                ps.precio_venta, v.proximo_vencimiento, v.dias_para_vencer,
+                CASE WHEN s.cantidad_vencida > 0 THEN 0
+                     WHEN v.dias_para_vencer IS NOT NULL AND v.dias_para_vencer <= 7 THEN 1
+                     WHEN s.stock_bajo THEN 2 ELSE 3 END AS prioridad
+           FROM v_stock s JOIN producto p ON p.id = s.producto_id
+           LEFT JOIN producto_sucursal ps ON ps.producto_id = s.producto_id AND ps.sucursal_id = s.sucursal_id
+           LEFT JOIN LATERAL (
+             SELECT min(l.fecha_caducidad) AS proximo_vencimiento, min(l.dias_para_vencer) AS dias_para_vencer
+               FROM v_lote_detalle l
+              WHERE l.sucursal_id = s.sucursal_id AND l.producto_id = s.producto_id
+                AND l.saldo > 0 AND l.fecha_caducidad IS NOT NULL) v ON true
+          WHERE s.sucursal_id = $1
+            AND (p.nombre ILIKE $2 OR p.codigo ILIKE $2)
+            AND (NOT $3 OR s.stock_bajo)
+            AND ($4::bigint IS NULL OR p.categoria_producto_id = $4)) x
+        WHERE ($5::text IS NULL
+               OR ($5 = 'vencido' AND cantidad_vencida > 0)
+               OR ($5 = 'por_vencer' AND dias_para_vencer BETWEEN 0 AND 7)
+               OR ($5 = 'bajo' AND stock_bajo))
+        ORDER BY prioridad, proximo_vencimiento NULLS LAST, nombre`,
+      [sucursalId, q, soloBajo, categoriaId, estado]);
     res.json(r.rows);
   } catch (e) { next(e); }
 });
