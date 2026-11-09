@@ -4,6 +4,7 @@ import { api } from '../api';
 import { num, pesos, fechaHora } from '../formato';
 import Campo from '../Campo';
 import { useTranslation } from 'react-i18next';
+import { usePermisos } from '../permisos';
 
 const CLASE = { abierta: 'neutra', cerrada: 'buena', cancelada: 'mala' };
 const CLASE_PIEZA = { pendiente: 'neutra', devuelta: 'buena', danada: 'mala', perdida: 'mala' };
@@ -25,6 +26,7 @@ const Dato = ({ etiqueta, ayuda, valor, fuerte }) => (
 export default function RentaDetalle() {
   const { id } = useParams();
   const { t } = useTranslation();
+  const { puede } = usePermisos();
   const [r, setR] = useState(null);
   const [cliente, setCliente] = useState(null);
   const [conceptos, setConceptos] = useState([]);
@@ -174,7 +176,7 @@ export default function RentaDetalle() {
                           <option value="danada">{t('rentaDetalle.opDanada')}</option>
                           <option value="perdida">{t('rentaDetalle.opPerdida')}</option>
                         </select>
-                        <button className="secundario" onClick={() => devolver(l)}>{t('rentaDetalle.registrar')}</button>
+                        <button className="secundario" style={puede('rentas.operar') ? undefined : { display: 'none' }} onClick={() => devolver(l)}>{t('rentaDetalle.registrar')}</button>
                       </span>
                     )}
                   </td>
@@ -201,7 +203,7 @@ export default function RentaDetalle() {
           </table>
         </div>
       )}
-      {abierta && (
+      {abierta && puede('rentas.operar') && (
         <form className="formulario" onSubmit={agregarCargo}>
           <Campo etiqueta={t('rentaDetalle.thPieza')} ayuda={t('rentaDetalle.ayudaPieza')}>
             <select value={cargo.renta_detalle_id} onChange={(e) => setCargo({ ...cargo, renta_detalle_id: e.target.value })} required>
@@ -244,7 +246,7 @@ export default function RentaDetalle() {
         </div>
       ) : <p className="suave">{t('rentaDetalle.sinMovimientos')}</p>}
 
-      {abierta && (
+      {abierta && puede('rentas.operar') && (
         <>
           <h3>{t('rentaDetalle.registrarMov')}</h3>
           <div className="segmentos">

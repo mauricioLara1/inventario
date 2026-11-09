@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
+import { usePermisos } from '../permisos';
+import Campo from '../Campo';
 
 const VACIO = { nombre: '', tipo_documento: '', numero_documento: '', telefono: '', correo: '' };
 const limpio = (x) => (x && x.trim() ? x.trim() : null);
 
 export default function Clientes() {
   const { t } = useTranslation();
+  const { puede } = usePermisos();
   const [lista, setLista] = useState([]);
   const [q, setQ] = useState('');
   const [form, setForm] = useState(VACIO);
@@ -79,15 +82,17 @@ export default function Clientes() {
   return (
     <>
       <h2>{t('menu.clientes')}</h2>
-      <form className="formulario" onSubmit={crear}>
-        <input placeholder={t('clientes.nombrePh')} value={form.nombre} onChange={campo('nombre')} required />
-        <input placeholder={t('clientes.tipoDoc')} list="tipos" value={form.tipo_documento} onChange={campo('tipo_documento')} />
-        <input placeholder={t('clientes.numDoc')} value={form.numero_documento} onChange={campo('numero_documento')} />
-        <input placeholder={t('clientes.telefono')} value={form.telefono} onChange={campo('telefono')} />
-        <input type="email" placeholder={t('clientes.correo')} value={form.correo} onChange={campo('correo')} />
+      {puede('clientes.crear', 'clientes.editar') && (
+<form className="formulario" onSubmit={crear}>
+        <Campo etiqueta={t('comun.nombre')} ayuda={t('clientes.ayudaNombre')}><input value={form.nombre} onChange={campo('nombre')} required /></Campo>
+        <Campo etiqueta={t('clientes.etTipoDoc')} ayuda={t('clientes.ayudaTipoDoc')}><input list="tipos" value={form.tipo_documento} onChange={campo('tipo_documento')} /></Campo>
+        <Campo etiqueta={t('clientes.etNumDoc')} ayuda={t('clientes.ayudaNumDoc')}><input value={form.numero_documento} onChange={campo('numero_documento')} /></Campo>
+        <Campo etiqueta={t('clientes.telefono')} ayuda={t('clientes.ayudaTelefono')}><input value={form.telefono} onChange={campo('telefono')} /></Campo>
+        <Campo etiqueta={t('clientes.correo')} ayuda={t('clientes.ayudaCorreo')}><input type="email" value={form.correo} onChange={campo('correo')} /></Campo>
         <button>{t('clientes.crear')}</button>
         <p className="suave ancho">{t('clientes.nota')}</p>
       </form>
+)}
       <datalist id="tipos"><option value="CC" /><option value="NIT" /><option value="CE" /><option value="PASAPORTE" /></datalist>
       <div className="filtros">
         <input placeholder={t('clientes.buscar')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -121,9 +126,13 @@ export default function Clientes() {
                 <td>{c.correo ?? '—'}</td>
                 <td>{c.bloqueado ? <span className="etiqueta mala">{t('clientes.bloqueado')}</span> : <span className="etiqueta buena">{t('comun.activo')}</span>}</td>
                 <td className="fila-acciones">
-                  <button className="secundario" onClick={() => empezarEdicion(c)}>{t('comun.editar')}</button>
+                  {puede('clientes.editar') && (
+<>
+<button className="secundario" onClick={() => empezarEdicion(c)}>{t('comun.editar')}</button>
                   <button className="secundario" onClick={() => bloquear(c)}>{c.bloqueado ? t('clientes.desbloquear') : t('clientes.bloquear')}</button>
                   <button className="secundario" onClick={() => desactivar(c)}>{t('clientes.desactivar')}</button>
+</>
+)}
                 </td>
               </tr>
             )))}

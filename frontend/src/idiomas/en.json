@@ -88,7 +88,14 @@
     "bloquear": "Block",
     "desbloquear": "Unblock",
     "desactivar": "Deactivate",
-    "sinClientes": "No customers"
+    "sinClientes": "No customers",
+    "etTipoDoc": "Document type",
+    "etNumDoc": "Document number",
+    "ayudaNombre": "Full name of the person or legal name of the company.",
+    "ayudaTipoDoc": "CC, NIT, CE or PASSPORT. It goes with the number: fill both or neither.",
+    "ayudaNumDoc": "No dots or spaces. Used to find the customer quickly in sales and rentals.",
+    "ayudaTelefono": "Required to rent. Not needed to sell.",
+    "ayudaCorreo": "Optional. Customer contact email."
   },
   "comun": {
     "guardar": "Save",
@@ -181,7 +188,7 @@
     "caduca": "expires",
     "categoriaOpcion": "Category…",
     "codigo": "Code",
-    "medida": "Unit (e.g. bottle)",
+    "medida": "Counting unit",
     "iva": "VAT %",
     "precioVenta": "Sale price (selected branch)",
     "stockMinimo": "Minimum stock",
@@ -200,7 +207,7 @@
     "ayudaCategoria": "Group the product belongs to. If the category tracks expiry, its batches are tracked by expiry date.",
     "ayudaCodigo": "Unique product code (yours or your supplier's). It cannot be repeated.",
     "ayudaNombre": "Name shown in sales, purchases and inventory.",
-    "ayudaMedida": "How the product is counted: bottle, bag, box, unit…",
+    "ayudaMedida": "How the product is counted: bottle, bag, box, unit… To state the content (1 L, 500 g), put it in the name.",
     "ayudaIva": "VAT percentage that applies to this product (e.g. 0, 5 or 19).",
     "ayudaPrecioVenta": "Selling price at the branch selected above. You can leave it empty and set it later.",
     "ayudaStockMinimo": "Minimum quantity you want to keep. Below it, inventory flags the product as low stock."

@@ -154,3 +154,12 @@ button.segmento.activo { background: var(--acento); color: #fff; border-color: v
 
 /* checkbox-compacto: un checkbox dentro de un Campo no debe estirarse */
 .campo-f input[type="checkbox"] { width: auto; height: auto; min-height: 0; align-self: flex-start; margin: 6px 0 0; }
+
+/* catalogo: formulario de categorias */
+.form-categoria { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+.form-categoria > .campo-f:first-child { flex: 1 1 260px; max-width: 420px; }
+.form-categoria > .campo-f:nth-child(2) { flex: 0 0 auto; }
+.form-categoria > .ancho { flex: 0 0 100%; }
+
+/* nombre-categoria-ancho: el nombre se estira y llena la fila */
+.form-categoria > .campo-f:first-child { flex: 1 1 260px; max-width: none; }

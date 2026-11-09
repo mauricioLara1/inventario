@@ -88,7 +88,14 @@
     "bloquear": "Bloquear",
     "desbloquear": "Desbloquear",
     "desactivar": "Desactivar",
-    "sinClientes": "Sin clientes"
+    "sinClientes": "Sin clientes",
+    "etTipoDoc": "Tipo de documento",
+    "etNumDoc": "Número de documento",
+    "ayudaNombre": "Nombre completo de la persona o razón social de la empresa.",
+    "ayudaTipoDoc": "CC, NIT, CE o PASAPORTE. Va junto con el número: o llenas los dos o ninguno.",
+    "ayudaNumDoc": "Sin puntos ni espacios. Sirve para encontrar al cliente rápido en ventas y rentas.",
+    "ayudaTelefono": "Obligatorio para poder rentar. Para vender no hace falta.",
+    "ayudaCorreo": "Opcional. Correo de contacto del cliente."
   },
   "comun": {
     "guardar": "Guardar",
@@ -181,7 +188,7 @@
     "caduca": "caduca",
     "categoriaOpcion": "Categoría…",
     "codigo": "Código",
-    "medida": "Medida (ej. botella)",
+    "medida": "Unidad de conteo",
     "iva": "IVA %",
     "precioVenta": "Precio de venta (sucursal elegida)",
     "stockMinimo": "Stock mínimo",
@@ -200,7 +207,7 @@
     "ayudaCategoria": "Grupo al que pertenece el producto. Si la categoría maneja caducidad, se controla el vencimiento de sus lotes.",
     "ayudaCodigo": "Código único del producto (el tuyo o el de tu proveedor). No se puede repetir.",
     "ayudaNombre": "Nombre con el que aparece en ventas, compras e inventario.",
-    "ayudaMedida": "Cómo se cuenta el producto: botella, bolsa, caja, unidad…",
+    "ayudaMedida": "Cómo se cuenta el producto: botella, bolsa, caja, unidad… Si quieres indicar el contenido (1 L, 500 g), escríbelo en el nombre.",
     "ayudaIva": "Porcentaje de IVA que aplica a este producto (ej. 0, 5 o 19).",
     "ayudaPrecioVenta": "Precio de venta en la sucursal que tienes elegida arriba. Puedes dejarlo vacío y fijarlo después.",
     "ayudaStockMinimo": "Cantidad mínima que quieres tener. Por debajo de ella, el inventario lo marca como stock bajo."

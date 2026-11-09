@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { pesos, fechaHora } from '../formato';
 import { useTranslation } from 'react-i18next';
+import { usePermisos } from '../permisos';
 import Buscador from '../Buscador';
 import Campo from '../Campo';
 
@@ -19,6 +20,7 @@ const RAPIDOS = [['hora1', 1], ['horas3', 3], ['manana', 24], ['dias3', 72], ['s
 export default function Rentas() {
   const navegar = useNavigate();
   const { t } = useTranslation();
+  const { puede } = usePermisos();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [rentas, setRentas] = useState([]);
@@ -86,7 +88,8 @@ export default function Rentas() {
   return (
     <>
       <h2>{t('menu.rentas')}</h2>
-      <form className="formulario" onSubmit={abrir}>
+      {puede('rentas.operar') && (
+<form className="formulario" onSubmit={abrir}>
         <Buscador valor={form.cliente} requerido etiqueta={t('rentas.etiquetaCliente')} ayuda={t('rentas.ayudaCliente')}
                   onChange={(c) => setForm({ ...form, cliente: c })}
                   buscar={buscarClientes}
@@ -156,6 +159,7 @@ export default function Rentas() {
         )}
         <button>{t('rentas.abrir')}{asignadas.length > 0 ? ' · ' + t('rentas.nPiezas', { n: asignadas.length }) : ''}{asignadas.length > 0 && !form.exonerar ? ' · ' + t('rentas.conDeposito', { valor: pesos(deposito) }) : ''}</button>
       </form>
+)}
 
       <div className="filtros">
         <select value={sucursal} onChange={(e) => { setSucursal(e.target.value); setCant({}); }}>

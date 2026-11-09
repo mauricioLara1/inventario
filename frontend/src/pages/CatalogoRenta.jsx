@@ -3,6 +3,7 @@ import { api } from '../api';
 import { pesos } from '../formato';
 import Campo from '../Campo';
 import { useTranslation } from 'react-i18next';
+import { usePermisos } from '../permisos';
 
 const ESTADO = { disponible: 'buena', rentada: 'neutra', mantenimiento: 'mala', retirada: 'neutra' };
 const P_VACIO = { categoria_renta_id: '', codigo: '', nombre: '', formato_cobro_id: '', precio: '',
@@ -10,6 +11,7 @@ const P_VACIO = { categoria_renta_id: '', codigo: '', nombre: '', formato_cobro_
 
 export default function CatalogoRenta() {
   const { t } = useTranslation();
+  const { puede } = usePermisos();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [categorias, setCategorias] = useState([]);
@@ -98,11 +100,14 @@ export default function CatalogoRenta() {
       {aviso && <p className="aviso">{aviso}</p>}
 
       <h3>{t('catalogoRenta.productos')}</h3>
-      <form className="formulario" onSubmit={crearCategoria}>
+      {puede('rentas.catalogo') && (
+<form className="formulario" onSubmit={crearCategoria}>
         <input placeholder={t('catalogoRenta.nuevaCategoria')} value={catNueva} onChange={(e) => setCatNueva(e.target.value)} required />
         <button className="secundario">{t('catalogoRenta.crearCategoria')}</button>
       </form>
-      <form className="formulario" onSubmit={crearProducto}>
+)}
+      {puede('rentas.catalogo') && (
+<form className="formulario" onSubmit={crearProducto}>
         <Campo etiqueta={t('catalogoRenta.categoria')} ayuda={t('catalogoRenta.ayudaCategoria')}>
           <select value={prod.categoria_renta_id} onChange={campo('categoria_renta_id')} required>
             <option value="">{t('catalogoRenta.elegir')}</option>
@@ -138,6 +143,7 @@ export default function CatalogoRenta() {
         </Campo>
         <button>{t('catalogoRenta.crearProducto')}</button>
       </form>
+)}
       <div className="tabla-caja">
         <table>
           <thead><tr><th>{t('catalogoRenta.thCodigo')}</th><th>{t('catalogoRenta.thProducto')}</th><th>{t('catalogoRenta.categoria')}</th><th>{t('catalogoRenta.thCobro')}</th>
@@ -171,7 +177,8 @@ export default function CatalogoRenta() {
         </select>
       </div>
       <p className="suave">{t('catalogoRenta.nDePiezas', { n: unidadesVista.length, total: unidades.length })}</p>
-      <form className="formulario" onSubmit={crearPieza}>
+      {puede('rentas.catalogo') && (
+<form className="formulario" onSubmit={crearPieza}>
         <select value={pieza.producto_renta_id} onChange={(e) => setPieza({ ...pieza, producto_renta_id: e.target.value })} required>
           <option value="">{t('catalogoRenta.productoOpcion')}</option>
           {productos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre}</option>)}
@@ -180,6 +187,7 @@ export default function CatalogoRenta() {
                onChange={(e) => setPieza({ ...pieza, codigo: e.target.value })} required />
         <button>{t('catalogoRenta.agregarPieza')}</button>
       </form>
+)}
       <div className="tabla-caja">
         <table>
           <thead><tr><th>{t('catalogoRenta.thCodigo')}</th><th>{t('catalogoRenta.thProducto')}</th><th>{t('comun.estado')}</th><th>{t('catalogoRenta.cambiarA')}</th></tr></thead>

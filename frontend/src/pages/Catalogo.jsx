@@ -2,12 +2,14 @@ import Campo from '../Campo';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
+import { usePermisos } from '../permisos';
 
 const VACIO = { categoria_producto_id: '', codigo: '', nombre: '', medida: '', impuesto_porcentaje: '0',
                 precio_venta: '', stock_minimo: '' };
 
 export default function Catalogo() {
   const { t } = useTranslation();
+  const { puede } = usePermisos();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
   const [categorias, setCategorias] = useState([]);
@@ -109,7 +111,8 @@ export default function Catalogo() {
   return (
     <>
       <h2>{t('menu.catalogo')}</h2>
-      <form className="formulario" onSubmit={crearCategoria}>
+      {puede('catalogo.editar') && (
+<form className="formulario form-categoria" onSubmit={crearCategoria}>
         <Campo etiqueta={t('catalogo.categoriaNombre')} ayuda={t('catalogo.ayudaCategoriaNombre')}>
           <input value={catNueva.nombre}
                  onChange={(e) => setCatNueva({ ...catNueva, nombre: e.target.value })} required />
@@ -128,7 +131,9 @@ export default function Catalogo() {
           ))}
         </div>
       </form>
-      <form className="formulario" onSubmit={crear}>
+)}
+      {puede('catalogo.editar') && (
+<form className="formulario" onSubmit={crear}>
         <Campo etiqueta={t('catalogo.categoria')} ayuda={t('catalogo.ayudaCategoria')}>
           <select value={form.categoria_producto_id} onChange={campo('categoria_producto_id')} required>
             <option value="">{t('catalogo.categoriaOpcion')}</option>
@@ -143,6 +148,7 @@ export default function Catalogo() {
         <Campo etiqueta={t('catalogo.stockMinimo')} ayuda={t('catalogo.ayudaStockMinimo')}><input type="number" min="0" step="any" value={form.stock_minimo} onChange={campo('stock_minimo')} /></Campo>
         <button>{t('catalogo.crearProducto')}</button>
       </form>
+)}
       <div className="filtros">
         <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
           {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -167,13 +173,14 @@ export default function Catalogo() {
                 <td className="num">
                   <input className="precio" type="number" min="0" step="any" placeholder={t('catalogo.sinPrecio')}
                          key={`${p.id}-${p.precio_venta}`} defaultValue={p.precio_venta ?? ''}
+                         disabled={!puede('precios.editar')}
                          onBlur={(e) => guardarPrecio(p, e.target.value)}
                          onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} />
                 </td>
                 <td className="num">
                   <input className="precio" type="number" min="0" step="any"
                          placeholder={p.precio_venta === null ? t('catalogo.primeroPrecio') : '0'}
-                         disabled={p.precio_venta === null}
+                         disabled={p.precio_venta === null || !puede('precios.editar')}
                          key={p.id + '-min-' + p.stock_minimo} defaultValue={p.stock_minimo ?? ''}
                          onBlur={(e) => guardarMinimo(p, e.target.value)}
                          onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} />
