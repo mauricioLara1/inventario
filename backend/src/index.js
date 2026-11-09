@@ -42,4 +42,7 @@ app.use('/clientes', require('./rutas/clientes'));
 app.use('/clientes', require('./rutas/clientes_gestion'));
 app.use(require('./middleware/errores').manejarErrores);
 
-app.listen(process.env.PORT || 3000, () => console.log('Servidor en http://localhost:3000'));
+app.listen(process.env.PORT || 3000, (err) => {
+  if (err) { console.error('No se pudo iniciar el servidor:', err.message); process.exit(1); }
+  console.log('Servidor en http://localhost:' + (process.env.PORT || 3000));
+});

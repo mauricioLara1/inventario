@@ -29,17 +29,38 @@ router.get('/', async (req, res, next) => {
       return res.status(403).json({ error: 'Esa sucursal no es tuya' });
     }
     const propias = req.usuario.nivel >= 100 ? null : req.usuario.sucursales;
+    const vendedorId = req.query.vendedor_id === undefined ? null : Number(req.query.vendedor_id);
+    const clienteId = req.query.cliente_id === undefined ? null : Number(req.query.cliente_id);
+    if ((vendedorId !== null && !esId(vendedorId)) || (clienteId !== null && !esId(clienteId))) {
+      return res.status(400).json({ error: 'vendedor_id o cliente_id invalido' });
+    }
+    const fechaOpc = (x) => {
+      if (x === undefined) return null;
+      if (typeof x !== 'string' || Number.isNaN(Date.parse(x))) return false;
+      return new Date(x).toISOString();
+    };
+    const desde = fechaOpc(req.query.desde);
+    const hasta = fechaOpc(req.query.hasta);
+    const sinCliente = req.query.sin_cliente === 'true';
+    if (desde === false || hasta === false) return res.status(400).json({ error: 'fecha invalida' });
     const r = await pool.query(
       `SELECT v.id, v.numero, v.sucursal_id, v.cliente_id, c.nombre AS cliente, v.estado, v.fecha,
+              v.vendedor_id, u.nombre AS vendedor,
               t.subtotal, t.descuento, t.impuesto, t.total, s.saldo
          FROM venta v
          JOIN v_venta_totales t ON t.venta_id = v.id
+         JOIN usuario u ON u.id = v.vendedor_id
          LEFT JOIN cliente c ON c.id = v.cliente_id
          LEFT JOIN v_venta_saldo s ON s.venta_id = v.id
         WHERE ($1::bigint IS NULL OR v.sucursal_id = $1)
           AND ($2::bigint[] IS NULL OR v.sucursal_id = ANY($2))
           AND ($3::text IS NULL OR v.estado = $3)
-        ORDER BY v.id DESC LIMIT 100`, [sucursalId, propias, estado]);
+          AND ($4::bigint IS NULL OR v.vendedor_id = $4)
+          AND ($5::bigint IS NULL OR v.cliente_id = $5)
+          AND ($6::timestamptz IS NULL OR v.fecha >= $6)
+          AND ($7::timestamptz IS NULL OR v.fecha <= $7)
+          AND (NOT $8::boolean OR v.cliente_id IS NULL)
+        ORDER BY v.id DESC LIMIT 200`, [sucursalId, propias, estado, vendedorId, clienteId, desde, hasta, sinCliente]);
     res.json(r.rows);
   } catch (e) { next(e); }
 });

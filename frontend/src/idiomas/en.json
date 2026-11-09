@@ -635,5 +635,32 @@
     "buscando": "Searching…",
     "sinResultados": "No results",
     "quitar": "Remove"
+  },
+  "ventas": {
+    "clientePh": "Customer: name, ID or phone (empty = walk-in customer)",
+    "nuevaVenta": "New sale",
+    "sucursal": "Branch",
+    "estado": "Status",
+    "vendedor": "Seller",
+    "ayudaVendedor": "Filter sales by the person who recorded them. Only owner and manager see it.",
+    "todosVendedores": "All sellers",
+    "cliente": "Customer",
+    "filtrarCliente": "Filter by customer…",
+    "desde": "From",
+    "hasta": "To",
+    "limpiar": "Clear filters",
+    "bloqueado": "Blocked",
+    "sinTelefono": "No phone",
+    "thNumero": "Number",
+    "thFecha": "Date",
+    "thCliente": "Customer",
+    "thVendedor": "Seller",
+    "thEstado": "Status",
+    "thTotal": "Total",
+    "thSaldo": "Balance",
+    "sinVentas": "No sales",
+    "consumidorFinal": "Walk-in customer",
+    "sinCliente": "No registered customer",
+    "vendedorPh": "Search seller by name…"
   }
 }

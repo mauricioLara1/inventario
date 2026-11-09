@@ -635,5 +635,32 @@
     "buscando": "Buscando…",
     "sinResultados": "Sin resultados",
     "quitar": "Quitar"
+  },
+  "ventas": {
+    "clientePh": "Cliente: nombre, documento o teléfono (vacío = consumidor final)",
+    "nuevaVenta": "Nueva venta",
+    "sucursal": "Sucursal",
+    "estado": "Estado",
+    "vendedor": "Vendedor",
+    "ayudaVendedor": "Filtra las ventas por la persona que las registró. Solo lo ven owner y gerente.",
+    "todosVendedores": "Todos los vendedores",
+    "cliente": "Cliente",
+    "filtrarCliente": "Filtrar por cliente…",
+    "desde": "Desde",
+    "hasta": "Hasta",
+    "limpiar": "Limpiar filtros",
+    "bloqueado": "Bloqueado",
+    "sinTelefono": "Sin teléfono",
+    "thNumero": "Número",
+    "thFecha": "Fecha",
+    "thCliente": "Cliente",
+    "thVendedor": "Vendedor",
+    "thEstado": "Estado",
+    "thTotal": "Total",
+    "thSaldo": "Saldo",
+    "sinVentas": "Sin ventas",
+    "consumidorFinal": "Consumidor final",
+    "sinCliente": "Sin cliente registrado",
+    "vendedorPh": "Buscar vendedor por nombre…"
   }
 }

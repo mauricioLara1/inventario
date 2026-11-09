@@ -56,9 +56,9 @@ function BuscadorBase({ valor, onChange, buscar, titulo, detalle, deshabilitado,
 
   if (valor) {
     return (
-      <span className="buscador-sel">
-        <span>{titulo(valor)}</span>
-        <button type="button" className="x" title={t('buscador.quitar')} onClick={() => onChange(null)}>×</button>
+      <span className="buscador">
+        <input readOnly className="buscador-valor" value={titulo(valor)} title={titulo(valor)} />
+        <button type="button" className="x buscador-quitar" title={t('buscador.quitar')} onClick={() => onChange(null)}>×</button>
       </span>
     );
   }

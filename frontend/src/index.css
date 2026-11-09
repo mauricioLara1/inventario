@@ -131,3 +131,26 @@ button.segmento.activo { background: var(--acento); color: #fff; border-color: v
 .fila-click:hover { background: rgba(31, 111, 235, .07); }
 .lotes-panel { padding: 8px 4px 12px; display: flex; flex-direction: column; gap: 10px; }
 .lotes-panel table { width: 100%; }
+
+/* ventas: filtros en cuadricula */
+.filtros-ventas { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 12px; align-items: end; }
+.filtros-ventas > .campo-f { min-width: 0; flex: none; }
+.filtros-ventas > .campo-f:has(> .buscador), .filtros-ventas > .campo-f:has(> .buscador-sel) { grid-column: span 2; }
+.filtros-ventas select, .filtros-ventas input[type="date"] { width: 100%; box-sizing: border-box; }
+.filtros-ventas .buscador { display: block; min-width: 0; }
+.filtros-ventas > button { justify-self: start; }
+
+/* buscador: el valor elegido se ve dentro de la misma caja */
+.buscador-valor { padding-right: 32px !important; text-overflow: ellipsis; cursor: default; }
+.buscador button.buscador-quitar { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  margin: 0; height: auto; min-height: 0; border: 0; box-shadow: none; background: none;
+  color: var(--suave); cursor: pointer; font-size: 1.2em; line-height: 1; padding: 0 4px; }
+.buscador button.buscador-quitar:hover { color: var(--error); }
+
+/* ventas: cuadricula fija (no se reacomoda al elegir filtros) */
+.filtros-ventas { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.filtros-ventas > .campo-f:has(> .buscador), .filtros-ventas > .campo-f:has(> .buscador-sel) { grid-column: auto; }
+@media (max-width: 800px) { .filtros-ventas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* checkbox-compacto: un checkbox dentro de un Campo no debe estirarse */
+.campo-f input[type="checkbox"] { width: auto; height: auto; min-height: 0; align-self: flex-start; margin: 6px 0 0; }
