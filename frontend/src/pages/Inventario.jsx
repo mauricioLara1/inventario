@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { fecha } from '../formato';
+import { fecha, num, pesos } from '../formato';
 import { useTranslation } from 'react-i18next';
 
-const num = (x) => Number(x).toLocaleString('es-CO', { maximumFractionDigits: 3 });
-const pesos = (x) => (x === null || x === undefined ? '—'
-  : Number(x).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }));
 
 // Fecha en que vence el lote mas viejo que aun tiene stock.
 function vencimiento(f, t) {

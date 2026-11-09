@@ -170,7 +170,17 @@
     "precioSucursal": "Price in this branch",
     "sinPrecio": "No price",
     "primeroPrecio": "Price first",
-    "sinProductos": "No products"
+    "sinProductos": "No products",
+    "categoriaNombre": "Category name",
+    "ayudaCategoriaNombre": "Group used to organize products (e.g. Cleaning, Tools). You pick one when creating a product.",
+    "ayudaManejaCaducidad": "Check it if products in this category expire (food, medicine). Expiry dates of their batches are tracked.",
+    "ayudaCategoria": "Group the product belongs to. If the category tracks expiry, its batches are tracked by expiry date.",
+    "ayudaCodigo": "Unique product code (yours or your supplier's). It cannot be repeated.",
+    "ayudaNombre": "Name shown in sales, purchases and inventory.",
+    "ayudaMedida": "How the product is counted: bottle, bag, box, unit…",
+    "ayudaIva": "VAT percentage that applies to this product (e.g. 0, 5 or 19).",
+    "ayudaPrecioVenta": "Selling price at the branch selected above. You can leave it empty and set it later.",
+    "ayudaStockMinimo": "Minimum quantity you want to keep. Below it, inventory flags the product as low stock."
   },
   "estados": {
     "borrador": "Draft",

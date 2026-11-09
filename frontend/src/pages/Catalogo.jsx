@@ -1,3 +1,4 @@
+import Campo from '../Campo';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
@@ -109,12 +110,14 @@ export default function Catalogo() {
     <>
       <h2>{t('menu.catalogo')}</h2>
       <form className="formulario" onSubmit={crearCategoria}>
-        <input placeholder={t('catalogo.nuevaCategoria')} value={catNueva.nombre}
-               onChange={(e) => setCatNueva({ ...catNueva, nombre: e.target.value })} required />
-        <label className="check">
+        <Campo etiqueta={t('catalogo.categoriaNombre')} ayuda={t('catalogo.ayudaCategoriaNombre')}>
+          <input value={catNueva.nombre}
+                 onChange={(e) => setCatNueva({ ...catNueva, nombre: e.target.value })} required />
+        </Campo>
+        <Campo etiqueta={t('catalogo.manejaCaducidad')} ayuda={t('catalogo.ayudaManejaCaducidad')}>
           <input type="checkbox" checked={catNueva.maneja_caducidad}
-                 onChange={(e) => setCatNueva({ ...catNueva, maneja_caducidad: e.target.checked })} /> {t('catalogo.manejaCaducidad')}
-        </label>
+                 onChange={(e) => setCatNueva({ ...catNueva, maneja_caducidad: e.target.checked })} />
+        </Campo>
         <button className="secundario">{t('catalogo.crearCategoria')}</button>
         <div className="chips ancho">
           {categorias.map((c) => (
@@ -126,19 +129,18 @@ export default function Catalogo() {
         </div>
       </form>
       <form className="formulario" onSubmit={crear}>
-        <select value={form.categoria_producto_id} onChange={campo('categoria_producto_id')} required>
-          <option value="">{t('catalogo.categoriaOpcion')}</option>
-          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-        </select>
-        <input placeholder={t('catalogo.codigo')} value={form.codigo} onChange={campo('codigo')} required />
-        <input placeholder={t('comun.nombre')} value={form.nombre} onChange={campo('nombre')} required />
-        <input placeholder={t('catalogo.medida')} value={form.medida} onChange={campo('medida')} />
-        <input type="number" min="0" max="100" step="any" title={t('catalogo.iva')} placeholder={t('catalogo.iva')}
-               value={form.impuesto_porcentaje} onChange={campo('impuesto_porcentaje')} />
-        <input type="number" min="0" step="any" placeholder={t('catalogo.precioVenta')}
-               value={form.precio_venta} onChange={campo('precio_venta')} />
-        <input type="number" min="0" step="any" placeholder={t('catalogo.stockMinimo')}
-               value={form.stock_minimo} onChange={campo('stock_minimo')} />
+        <Campo etiqueta={t('catalogo.categoria')} ayuda={t('catalogo.ayudaCategoria')}>
+          <select value={form.categoria_producto_id} onChange={campo('categoria_producto_id')} required>
+            <option value="">{t('catalogo.categoriaOpcion')}</option>
+            {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+        </Campo>
+        <Campo etiqueta={t('catalogo.codigo')} ayuda={t('catalogo.ayudaCodigo')}><input value={form.codigo} onChange={campo('codigo')} required /></Campo>
+        <Campo etiqueta={t('comun.nombre')} ayuda={t('catalogo.ayudaNombre')}><input value={form.nombre} onChange={campo('nombre')} required /></Campo>
+        <Campo etiqueta={t('catalogo.medida')} ayuda={t('catalogo.ayudaMedida')}><input value={form.medida} onChange={campo('medida')} /></Campo>
+        <Campo etiqueta={t('catalogo.iva')} ayuda={t('catalogo.ayudaIva')}><input type="number" min="0" max="100" step="any" value={form.impuesto_porcentaje} onChange={campo('impuesto_porcentaje')} /></Campo>
+        <Campo etiqueta={t('catalogo.precioVenta')} ayuda={t('catalogo.ayudaPrecioVenta')}><input type="number" min="0" step="any" value={form.precio_venta} onChange={campo('precio_venta')} /></Campo>
+        <Campo etiqueta={t('catalogo.stockMinimo')} ayuda={t('catalogo.ayudaStockMinimo')}><input type="number" min="0" step="any" value={form.stock_minimo} onChange={campo('stock_minimo')} /></Campo>
         <button>{t('catalogo.crearProducto')}</button>
       </form>
       <div className="filtros">
