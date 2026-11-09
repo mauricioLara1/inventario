@@ -3,9 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { num, pesos, fecha } from '../formato';
 import { useTranslation } from 'react-i18next';
+import Buscador from '../Buscador';
 
 const CLASE = { borrador: 'neutra', confirmada: 'buena', anulada: 'mala' };
-const VACIA = { producto_id: '', cantidad: '', descuento_porcentaje: '' };
+const VACIA = { producto: null, cantidad: '', descuento_porcentaje: '' };
 const PAGO = { metodo: 'efectivo', monto: '', referencia: '' };
 
 export default function VentaDetalle() {
@@ -13,7 +14,6 @@ export default function VentaDetalle() {
   const navegar = useNavigate();
   const { t } = useTranslation();
   const [v, setV] = useState(null);
-  const [productos, setProductos] = useState([]);
   const [stock, setStock] = useState({});
   const [form, setForm] = useState(VACIA);
   const [pago, setPago] = useState(PAGO);
@@ -24,8 +24,6 @@ export default function VentaDetalle() {
     try {
       const venta = await api('GET', `/ventas/${id}`);
       setV(venta);
-      const p = await api('GET', `/catalogo/productos?sucursal_id=${venta.sucursal_id}`);
-      setProductos(p.filter((x) => x.activo));
       const st = await api('GET', '/inventario/stock?sucursal_id=' + venta.sucursal_id);
       setStock(Object.fromEntries(st.map((x) => [x.producto_id, Number(x.cantidad_vendible)])));
       setError('');
@@ -38,9 +36,22 @@ export default function VentaDetalle() {
     try { await fn(); if (mensaje) setAviso(mensaje); await cargar(); } catch (e) { setError(e.message); }
   }
 
+  const buscarProductos = async (q) => {
+    const sid = v?.sucursal_id;
+    const p = await api('GET', '/catalogo/productos?sucursal_id=' + sid + '&q=' + encodeURIComponent(q));
+    return p.filter((x) => x.activo);
+  };
+  const detalleProducto = (p) => {
+    const disp = stock[p.id] ?? 0;
+    if (p.precio_venta === null) return t('ventaDetalle.sinPrecio');
+    if (disp <= 0) return t('ventaDetalle.sinStock');
+    return pesos(p.precio_venta) + ' · ' + t('ventaDetalle.disp') + ' ' + num(disp);
+  };
+
   const agregar = (e) => {
     e.preventDefault();
-    const cuerpo = { producto_id: Number(form.producto_id), cantidad: Number(form.cantidad) };
+    if (!form.producto) return;
+    const cuerpo = { producto_id: Number(form.producto.id), cantidad: Number(form.cantidad) };
     if (form.descuento_porcentaje) cuerpo.descuento_porcentaje = Number(form.descuento_porcentaje);
     hacer(async () => { await api('POST', `/ventas/${id}/lineas`, cuerpo); setForm(VACIA); });
   };
@@ -84,17 +95,14 @@ export default function VentaDetalle() {
 
       {borrador && (
         <form className="formulario" onSubmit={agregar}>
-          <select value={form.producto_id} onChange={(e) => setForm({ ...form, producto_id: e.target.value })} required>
-            <option value="">{t('ventaDetalle.productoOpcion')}</option>
-            {productos.map((p) => {
-              const sinPrecio = p.precio_venta === null;
-              const disp = stock[p.id] ?? 0;
-              const nota = sinPrecio ? ' · ' + t('ventaDetalle.sinPrecio')
-                : disp <= 0 ? ' · ' + t('ventaDetalle.sinStock')
-                : ' · ' + pesos(p.precio_venta) + ' · ' + t('ventaDetalle.disp') + ' ' + num(disp);
-              return <option key={p.id} value={p.id} disabled={sinPrecio || disp <= 0}>{p.codigo} · {p.nombre}{nota}</option>;
-            })}
-          </select>
+          <Buscador valor={form.producto} requerido
+                    onChange={(p) => setForm({ ...form, producto: p })}
+                    buscar={buscarProductos}
+                    placeholder={t('ventaDetalle.buscarProducto')}
+                    titulo={(p) => p.codigo + ' · ' + p.nombre}
+                    detalle={detalleProducto}
+                    deshabilitado={(p) => p.precio_venta === null || (stock[p.id] ?? 0) <= 0}
+                    exacto={(p, q) => [p.codigo, p.codigo_barras].some((c) => c && c.toLowerCase() === q.toLowerCase())} />
           <input type="number" min="0" step="any" placeholder={t('ventaDetalle.cantidad')} value={form.cantidad}
                  onChange={(e) => setForm({ ...form, cantidad: e.target.value })} required />
           <input type="number" min="0" max="100" step="any" placeholder={t('ventaDetalle.descuentoPh')}

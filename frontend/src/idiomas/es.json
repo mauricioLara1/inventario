@@ -311,7 +311,11 @@
     "thSaldo": "Saldo",
     "clienteN": "Cliente {{id}}",
     "vencida": "vencida",
-    "sinRentas": "Sin rentas"
+    "sinRentas": "Sin rentas",
+    "buscarCliente": "Buscar cliente por nombre, documento o teléfono…",
+    "etiquetaCliente": "Cliente",
+    "ayudaCliente": "Busca por nombre, documento o teléfono. Debe tener teléfono y no estar bloqueado.",
+    "ayudaDevolucion": "Fecha y hora en que deben volver las piezas. Pasada esa hora, la renta se considera vencida."
   },
   "informes": {
     "tab": {
@@ -398,7 +402,8 @@
     "recibirBtn": "Recibir compra",
     "borrarBtn": "Borrar borrador",
     "motivoPh": "Motivo de la anulación",
-    "anularBtn": "Anular compra"
+    "anularBtn": "Anular compra",
+    "buscarProducto": "Buscar producto por nombre, código o código de barras…"
   },
   "metodos": {
     "efectivo": "Efectivo",
@@ -445,7 +450,8 @@
     "thMonto": "Monto",
     "monto": "Monto (saldo {{saldo}})",
     "referenciaPh": "Referencia (opcional)",
-    "registrarPago": "Registrar pago"
+    "registrarPago": "Registrar pago",
+    "buscarProducto": "Buscar producto por nombre, código o código de barras…"
   },
   "notaDetalle": {
     "confirmConfirmar": "¿Confirmar la nota crédito? Ya no se podrán cambiar las líneas.",
@@ -601,5 +607,10 @@
     "cerrarBtn": "Cerrar renta",
     "cancelarBtn": "Cancelar renta",
     "cancelarNota": "Cancelar solo es posible si no se ha devuelto ninguna pieza."
+  },
+  "buscador": {
+    "buscando": "Buscando…",
+    "sinResultados": "Sin resultados",
+    "quitar": "Quitar"
   }
 }

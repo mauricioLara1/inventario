@@ -311,7 +311,11 @@
     "thSaldo": "Balance",
     "clienteN": "Customer {{id}}",
     "vencida": "overdue",
-    "sinRentas": "No rentals"
+    "sinRentas": "No rentals",
+    "buscarCliente": "Search customer by name, ID or phone…",
+    "etiquetaCliente": "Customer",
+    "ayudaCliente": "Search by name, ID or phone. They must have a phone number and not be blocked.",
+    "ayudaDevolucion": "Date and time the items are due back. After that time, the rental is considered overdue."
   },
   "informes": {
     "tab": {
@@ -398,7 +402,8 @@
     "recibirBtn": "Receive purchase",
     "borrarBtn": "Delete draft",
     "motivoPh": "Reason for voiding",
-    "anularBtn": "Void purchase"
+    "anularBtn": "Void purchase",
+    "buscarProducto": "Search product by name, code or barcode…"
   },
   "metodos": {
     "efectivo": "Cash",
@@ -445,7 +450,8 @@
     "thMonto": "Amount",
     "monto": "Amount (balance {{saldo}})",
     "referenciaPh": "Reference (optional)",
-    "registrarPago": "Register payment"
+    "registrarPago": "Register payment",
+    "buscarProducto": "Search product by name, code or barcode…"
   },
   "notaDetalle": {
     "confirmConfirmar": "Confirm the credit note? Lines can no longer be changed.",
@@ -601,5 +607,10 @@
     "cerrarBtn": "Close rental",
     "cancelarBtn": "Cancel rental",
     "cancelarNota": "Cancelling is only possible if no piece has been returned."
+  },
+  "buscador": {
+    "buscando": "Searching…",
+    "sinResultados": "No results",
+    "quitar": "Remove"
   }
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { pesos, fecha } from '../formato';
+import Buscador from '../Buscador';
 
 const CLASE = { borrador: 'neutra', confirmada: 'buena', anulada: 'mala' };
 
@@ -9,8 +10,7 @@ export default function Ventas() {
   const navegar = useNavigate();
   const [sucursales, setSucursales] = useState([]);
   const [sucursal, setSucursal] = useState('');
-  const [clientes, setClientes] = useState([]);
-  const [cliente, setCliente] = useState('');
+  const [cliente, setCliente] = useState(null);
   const [ventas, setVentas] = useState([]);
   const [estado, setEstado] = useState('');
   const [error, setError] = useState('');
@@ -18,11 +18,10 @@ export default function Ventas() {
   const cargar = useCallback(async () => {
     if (!sucursal) return;
     try {
-      const [v, c] = await Promise.all([
+      const [v] = await Promise.all([
         api('GET', `/ventas?sucursal_id=${sucursal}${estado ? `&estado=${estado}` : ''}`),
-        api('GET', '/clientes'),
       ]);
-      setVentas(v); setClientes(c); setError('');
+      setVentas(v); setError('');
     } catch (e) { setError(e.message); }
   }, [sucursal, estado]);
 
@@ -33,11 +32,13 @@ export default function Ventas() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
+  const buscarClientes = (q) => api('GET', '/clientes?q=' + encodeURIComponent(q));
+
   async function crear(e) {
     e.preventDefault();
     setError('');
     const cuerpo = { sucursal_id: Number(sucursal) };
-    if (cliente) cuerpo.cliente_id = Number(cliente);
+    if (cliente) cuerpo.cliente_id = Number(cliente.id);
     try {
       const v = await api('POST', '/ventas', cuerpo);
       navegar(`/ventas/${v.id}`);
@@ -48,10 +49,12 @@ export default function Ventas() {
     <>
       <h2>Ventas</h2>
       <form className="formulario" onSubmit={crear}>
-        <select value={cliente} onChange={(e) => setCliente(e.target.value)}>
-          <option value="">Consumidor final (sin cliente)</option>
-          {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-        </select>
+        <Buscador valor={cliente} onChange={setCliente}
+                  buscar={buscarClientes}
+                  placeholder="Cliente: nombre, documento o teléfono (vacío = consumidor final)"
+                  titulo={(c) => c.nombre + (c.numero_documento ? ' · ' + c.numero_documento : '')}
+                  detalle={(c) => (c.bloqueado ? 'Bloqueado' : c.telefono || 'Sin teléfono')}
+                  exacto={(c, q) => c.numero_documento === q} />
         <button>Nueva venta</button>
       </form>
       <div className="filtros">

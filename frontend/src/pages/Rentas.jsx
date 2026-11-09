@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { pesos, fechaHora } from '../formato';
 import { useTranslation } from 'react-i18next';
+import Buscador from '../Buscador';
+import Campo from '../Campo';
 
 const CLASE = { abierta: 'neutra', cerrada: 'buena', cancelada: 'mala' };
-const FORM = { cliente_id: '', fecha: '', metodo: 'efectivo', exonerar: false };
+const FORM = { cliente: null, fecha: '', metodo: 'efectivo', exonerar: false };
+const buscarClientes = (q) => api('GET', '/clientes?q=' + encodeURIComponent(q));
 const p2 = (n) => String(n).padStart(2, '0');
 const desdeAhora = (horas) => {
   const d = new Date(Date.now() + horas * 3600000);
@@ -71,7 +74,7 @@ export default function Rentas() {
     setError('');
     if (asignadas.length === 0) { setError(t('rentas.errorCantidad')); return; }
     const cuerpo = {
-      sucursal_id: Number(sucursal), cliente_id: Number(form.cliente_id),
+      sucursal_id: Number(sucursal), cliente_id: Number(form.cliente?.id),
       fecha_prevista_devolucion: new Date(form.fecha).toISOString(), unidades: asignadas.map((u) => u.id) };
     if (form.exonerar) cuerpo.exonerar_deposito = true; else cuerpo.deposito_metodo = form.metodo;
     try {
@@ -84,17 +87,17 @@ export default function Rentas() {
     <>
       <h2>{t('menu.rentas')}</h2>
       <form className="formulario" onSubmit={abrir}>
-        <select value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} required>
-          <option value="">{t('rentas.clienteOpcion')}</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id} disabled={!c.telefono || c.bloqueado}>
-              {c.nombre}{!c.telefono ? ' (' + t('rentas.sinTelefonoNoRenta') + ')' : ''}{c.bloqueado ? ' (' + t('rentas.bloqueado') + ')' : ''}
-            </option>
-          ))}
-        </select>
-        <label className="campo">{t('rentas.devolucionPrevista')}
+        <Buscador valor={form.cliente} requerido etiqueta={t('rentas.etiquetaCliente')} ayuda={t('rentas.ayudaCliente')}
+                  onChange={(c) => setForm({ ...form, cliente: c })}
+                  buscar={buscarClientes}
+                  placeholder={t('rentas.buscarCliente')}
+                  titulo={(c) => c.nombre + (c.numero_documento ? ' · ' + c.numero_documento : '')}
+                  detalle={(c) => (!c.telefono ? t('rentas.sinTelefonoNoRenta') : c.bloqueado ? t('rentas.bloqueado') : c.telefono)}
+                  deshabilitado={(c) => !c.telefono || c.bloqueado}
+                  exacto={(c, q) => c.numero_documento === q} />
+        <Campo etiqueta={t('rentas.devolucionPrevista')} ayuda={t('rentas.ayudaDevolucion')}>
           <input type="datetime-local" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required />
-        </label>
+        </Campo>
         <div className="chips ancho">
           {RAPIDOS.map(([texto, horas]) => (
             <button type="button" key={texto} className="secundario"

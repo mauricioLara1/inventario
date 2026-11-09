@@ -3,16 +3,16 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { num, pesos, fecha } from '../formato';
 import { useTranslation } from 'react-i18next';
+import Buscador from '../Buscador';
 
 const CLASE = { borrador: 'neutra', recibida: 'buena', anulada: 'mala' };
-const VACIA = { producto_id: '', cantidad: '', costo_unitario: '', fecha_caducidad: '', precio_venta: '' };
+const VACIA = { producto: null, cantidad: '', costo_unitario: '', fecha_caducidad: '', precio_venta: '' };
 
 export default function CompraDetalle() {
   const { id } = useParams();
   const navegar = useNavigate();
   const { t } = useTranslation();
   const [c, setC] = useState(null);
-  const [productos, setProductos] = useState([]);
   const [form, setForm] = useState(VACIA);
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState('');
@@ -22,24 +22,28 @@ export default function CompraDetalle() {
     try {
       const compra = await api('GET', `/compras/${id}`);
       setC(compra);
-      const p = await api('GET', `/catalogo/productos?sucursal_id=${compra.sucursal_id}`);
-      setProductos(p.filter((x) => x.activo));
       setError('');
     } catch (e) { setError(e.message); }
   }, [id]);
   useEffect(() => { cargar(); }, [cargar]);
 
   const campo = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const prod = productos.find((p) => String(p.id) === form.producto_id);
+  const prod = form.producto;
 
   async function hacer(fn, mensaje) {
     setError(''); setAviso('');
     try { await fn(); if (mensaje) setAviso(mensaje); await cargar(); } catch (e) { setError(e.message); }
   }
 
+  const buscarProductos = async (q) => {
+    const p = await api('GET', '/catalogo/productos?sucursal_id=' + c?.sucursal_id + '&q=' + encodeURIComponent(q));
+    return p.filter((x) => x.activo);
+  };
+
   const agregar = (e) => {
     e.preventDefault();
-    const cuerpo = { producto_id: Number(form.producto_id), cantidad: Number(form.cantidad),
+    if (!form.producto) return;
+    const cuerpo = { producto_id: Number(form.producto.id), cantidad: Number(form.cantidad),
                      costo_unitario: Number(form.costo_unitario) };
     if (form.fecha_caducidad) cuerpo.fecha_caducidad = form.fecha_caducidad;
     hacer(async () => {
@@ -79,10 +83,13 @@ export default function CompraDetalle() {
 
       {borrador && (
         <form className="formulario" onSubmit={agregar}>
-          <select value={form.producto_id} onChange={campo('producto_id')} required>
-            <option value="">{t('compraDetalle.productoOpcion')}</option>
-            {productos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre}{p.precio_venta === null ? ' · ' + t('compraDetalle.sinPrecio') : ''}</option>)}
-          </select>
+          <Buscador valor={form.producto} requerido
+                    onChange={(p) => setForm({ ...form, producto: p })}
+                    buscar={buscarProductos}
+                    placeholder={t('compraDetalle.buscarProducto')}
+                    titulo={(p) => p.codigo + ' · ' + p.nombre}
+                    detalle={(p) => (p.precio_venta === null ? t('compraDetalle.sinPrecio') : '')}
+                    exacto={(p, q) => [p.codigo, p.codigo_barras].some((x) => x && x.toLowerCase() === q.toLowerCase())} />
           <input type="number" min="0" step="any" placeholder={t('compraDetalle.cantidad')} value={form.cantidad} onChange={campo('cantidad')} required />
           <input type="number" min="0" step="any" placeholder={t('compraDetalle.costoUnitario')} value={form.costo_unitario} onChange={campo('costo_unitario')} required />
           <input type="date" title={t('compraDetalle.caducidad')} value={form.fecha_caducidad} onChange={campo('fecha_caducidad')}
