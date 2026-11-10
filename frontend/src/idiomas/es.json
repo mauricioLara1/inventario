@@ -210,7 +210,9 @@
     "ayudaMedida": "Cómo se cuenta el producto: botella, bolsa, caja, unidad… Si quieres indicar el contenido (1 L, 500 g), escríbelo en el nombre.",
     "ayudaIva": "Porcentaje de IVA que aplica a este producto (ej. 0, 5 o 19).",
     "ayudaPrecioVenta": "Precio de venta en la sucursal que tienes elegida arriba. Puedes dejarlo vacío y fijarlo después.",
-    "ayudaStockMinimo": "Cantidad mínima que quieres tener. Por debajo de ella, el inventario lo marca como stock bajo."
+    "ayudaStockMinimo": "Cantidad mínima que quieres tener. Por debajo de ella, el inventario lo marca como stock bajo.",
+    "codigoBarras": "Código de barras",
+    "ayudaCodigoBarras": "Opcional. El número impreso bajo las barras del empaque. Con un lector, escanéalo en ventas y compras para encontrar el producto al instante. No se puede repetir."
   },
   "estados": {
     "borrador": "Borrador",
@@ -229,7 +231,21 @@
     "nueva": "Nueva compra",
     "proveedor": "Proveedor",
     "factura": "Factura",
-    "sinCompras": "Sin compras"
+    "sinCompras": "Sin compras",
+    "proveedorPh": "Proveedor: nombre o NIT",
+    "filtrarProveedor": "Filtrar por proveedor…",
+    "sucursal": "Sucursal",
+    "etBuscar": "Compra o factura",
+    "ayudaBuscar": "Busca por el número de la compra (C-00001) o el de la factura del proveedor.",
+    "desde": "Desde",
+    "hasta": "Hasta",
+    "montoMin": "Monto desde",
+    "montoMax": "Monto hasta",
+    "ayudaMonto": "Filtra por el total de la compra (con impuestos).",
+    "recibidaPor": "Recibida por",
+    "ayudaRecibidaPor": "Filtra las compras por la persona que las registró. Solo lo ven owner y gerente.",
+    "empleadoPh": "Buscar empleado por nombre…",
+    "limpiar": "Limpiar filtros"
   },
   "notasCredito": {
     "nota": "Una nota crédito se crea desde una venta confirmada (botón dentro de la venta).",

@@ -28,16 +28,47 @@ router.get('/', async (req, res, next) => {
       return res.status(403).json({ error: 'Esa sucursal no es tuya' });
     }
     const propias = req.usuario.nivel >= 100 ? null : req.usuario.sucursales;
+    const idOpc = (x) => (x === undefined ? null : Number(x));
+    const proveedorId = idOpc(req.query.proveedor_id);
+    const recibidaPor = idOpc(req.query.recibida_por);
+    if ((proveedorId !== null && !esId(proveedorId)) || (recibidaPor !== null && !esId(recibidaPor))) {
+      return res.status(400).json({ error: 'proveedor_id o recibida_por invalido' });
+    }
+    const fechaOpc = (x) => {
+      if (x === undefined) return null;
+      if (typeof x !== 'string' || Number.isNaN(Date.parse(x))) return false;
+      return new Date(x).toISOString();
+    };
+    const desde = fechaOpc(req.query.desde);
+    const hasta = fechaOpc(req.query.hasta);
+    if (desde === false || hasta === false) return res.status(400).json({ error: 'fecha invalida' });
+    const montoOpc = (x) => (x === undefined ? null : Number(x));
+    const totalMin = montoOpc(req.query.total_min);
+    const totalMax = montoOpc(req.query.total_max);
+    if ([totalMin, totalMax].some((m) => m !== null && !Number.isFinite(m))) {
+      return res.status(400).json({ error: 'monto invalido' });
+    }
+    const buscar = typeof req.query.q === 'string' && req.query.q.trim() ? `%${req.query.q.trim()}%` : null;
     const r = await pool.query(
       `SELECT c.id, c.numero, c.sucursal_id, c.proveedor_id, p.nombre AS proveedor,
-              c.numero_factura_proveedor, c.estado, c.fecha, t.subtotal, t.impuesto, t.total
+              c.numero_factura_proveedor, c.estado, c.fecha, c.recibida_por, u.nombre AS recibida_por_nombre,
+              t.subtotal, t.impuesto, t.total
          FROM compra c
          JOIN proveedor p ON p.id = c.proveedor_id
+         JOIN usuario u ON u.id = c.recibida_por
          JOIN v_compra_totales t ON t.compra_id = c.id
         WHERE ($1::bigint IS NULL OR c.sucursal_id = $1)
           AND ($2::bigint[] IS NULL OR c.sucursal_id = ANY($2))
           AND ($3::text IS NULL OR c.estado = $3)
-        ORDER BY c.id DESC LIMIT 100`, [sucursalId, propias, estado]);
+          AND ($4::bigint IS NULL OR c.proveedor_id = $4)
+          AND ($5::timestamptz IS NULL OR c.fecha >= $5)
+          AND ($6::timestamptz IS NULL OR c.fecha <= $6)
+          AND ($7::text IS NULL OR c.numero ILIKE $7 OR c.numero_factura_proveedor ILIKE $7)
+          AND ($8::numeric IS NULL OR t.total >= $8)
+          AND ($9::numeric IS NULL OR t.total <= $9)
+          AND ($10::bigint IS NULL OR c.recibida_por = $10)
+        ORDER BY c.id DESC LIMIT 200`,
+      [sucursalId, propias, estado, proveedorId, desde, hasta, buscar, totalMin, totalMax, recibidaPor]);
     res.json(r.rows);
   } catch (e) { next(e); }
 });

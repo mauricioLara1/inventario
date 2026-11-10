@@ -6,7 +6,7 @@ if (!process.env.JWT_SECRET) { console.error('Falta JWT_SECRET en .env'); proces
 
 const app = express();
 require('./seguridad')(app);
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 app.get('/salud', async (req, res) => {
   try {
@@ -36,6 +36,7 @@ app.use('/auth', require('./rutas/cuenta'));
 app.use('/usuarios', require('./rutas/usuarios_gestion'));
 app.use('/sucursales', require('./rutas/sucursales_gestion'));
 app.use('/catalogo', require('./rutas/catalogo_gestion'));
+app.use('/catalogo', require('./rutas/catalogo_importar'));
 app.use('/renta-catalogo', require('./rutas/renta_catalogo_gestion'));
 app.use('/proveedores', require('./rutas/proveedores_gestion'));
 app.use('/clientes', require('./rutas/clientes'));

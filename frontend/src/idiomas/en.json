@@ -210,7 +210,9 @@
     "ayudaMedida": "How the product is counted: bottle, bag, box, unit… To state the content (1 L, 500 g), put it in the name.",
     "ayudaIva": "VAT percentage that applies to this product (e.g. 0, 5 or 19).",
     "ayudaPrecioVenta": "Selling price at the branch selected above. You can leave it empty and set it later.",
-    "ayudaStockMinimo": "Minimum quantity you want to keep. Below it, inventory flags the product as low stock."
+    "ayudaStockMinimo": "Minimum quantity you want to keep. Below it, inventory flags the product as low stock.",
+    "codigoBarras": "Barcode",
+    "ayudaCodigoBarras": "Optional. The number printed under the bars on the package. With a scanner, scan it in sales and purchases to find the product instantly. It cannot be repeated."
   },
   "estados": {
     "borrador": "Draft",
@@ -229,7 +231,21 @@
     "nueva": "New purchase",
     "proveedor": "Supplier",
     "factura": "Invoice",
-    "sinCompras": "No purchases"
+    "sinCompras": "No purchases",
+    "proveedorPh": "Supplier: name or tax ID",
+    "filtrarProveedor": "Filter by supplier…",
+    "sucursal": "Branch",
+    "etBuscar": "Purchase or invoice",
+    "ayudaBuscar": "Search by purchase number (C-00001) or the supplier invoice number.",
+    "desde": "From",
+    "hasta": "To",
+    "montoMin": "Amount from",
+    "montoMax": "Amount to",
+    "ayudaMonto": "Filters by the purchase total (taxes included).",
+    "recibidaPor": "Received by",
+    "ayudaRecibidaPor": "Filter purchases by the person who recorded them. Only owner and manager see it.",
+    "empleadoPh": "Search employee by name…",
+    "limpiar": "Clear filters"
   },
   "notasCredito": {
     "nota": "A credit note is created from a confirmed sale (button inside the sale).",

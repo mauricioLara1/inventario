@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { usePermisos } from '../permisos';
 
 const VACIO = { categoria_producto_id: '', codigo: '', nombre: '', medida: '', impuesto_porcentaje: '0',
-                precio_venta: '', stock_minimo: '' };
+                precio_venta: '', stock_minimo: '', codigo_barras: '' };
 
 export default function Catalogo() {
   const { t } = useTranslation();
@@ -49,6 +49,7 @@ export default function Catalogo() {
       impuesto_porcentaje: Number(form.impuesto_porcentaje),
     };
     if (form.medida.trim()) cuerpo.medida = form.medida.trim();
+    if (form.codigo_barras.trim()) cuerpo.codigo_barras = form.codigo_barras.trim();
     const conPrecio = form.precio_venta !== '';
     if (form.stock_minimo !== '' && !conPrecio) {
       setError(t('catalogo.minimoSinPrecio')); return;
@@ -141,6 +142,7 @@ export default function Catalogo() {
           </select>
         </Campo>
         <Campo etiqueta={t('catalogo.codigo')} ayuda={t('catalogo.ayudaCodigo')}><input value={form.codigo} onChange={campo('codigo')} required /></Campo>
+        <Campo etiqueta={t('catalogo.codigoBarras')} ayuda={t('catalogo.ayudaCodigoBarras')}><input value={form.codigo_barras} onChange={campo('codigo_barras')} /></Campo>
         <Campo etiqueta={t('comun.nombre')} ayuda={t('catalogo.ayudaNombre')}><input value={form.nombre} onChange={campo('nombre')} required /></Campo>
         <Campo etiqueta={t('catalogo.medida')} ayuda={t('catalogo.ayudaMedida')}><input value={form.medida} onChange={campo('medida')} /></Campo>
         <Campo etiqueta={t('catalogo.iva')} ayuda={t('catalogo.ayudaIva')}><input type="number" min="0" max="100" step="any" value={form.impuesto_porcentaje} onChange={campo('impuesto_porcentaje')} /></Campo>
@@ -167,7 +169,7 @@ export default function Catalogo() {
             {productos.map((p) => (
               <tr key={p.id} className={p.activo ? '' : 'inactivo'}>
                 <td>{p.codigo}</td>
-                <td>{p.nombre}{p.medida ? <span className="suave"> · {p.medida}</span> : null}</td>
+                <td>{p.nombre}{p.medida ? <span className="suave"> · {p.medida}</span> : null}{p.codigo_barras ? <div className="suave">{p.codigo_barras}</div> : null}</td>
                 <td>{nombreCat[p.categoria_producto_id] ?? ''}</td>
                 <td className="num">{Number(p.impuesto_porcentaje)}%</td>
                 <td className="num">
